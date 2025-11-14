@@ -102,6 +102,12 @@ function App() {
             >
                 Eliminar
             </button>
+            <button 
+                className="btn btn-primary" 
+                onClick={() => alert(`Detalles de ${cancion.titulo}:\nArtista: ${cancion.artista}\nDuración: ${cancion.duracion}`)}
+            >
+                Detalles
+            </button>
         </div>
       </li>
     );
