@@ -97,7 +97,7 @@ function App() {
                 Editar
             </button>
             <button 
-                className="btn btn-warning"
+                className="btn btn-primary"
                 onClick={() => handleDelete(cancion.id)}
             >
                 Eliminar
