@@ -116,7 +116,7 @@ function App() {
 
   return (
     <div className="container mt-5"> 
-      <h1 className="text-center mb-4 text-primary">💿 Mi Colección de Música</h1>
+      <h1 className="text-center mb-4 text-warning">💿 Mi Colección de Música</h1>
 
       {/* Formulario de Adición (CREATE) */}
       <div className="card shadow-sm mb-4">
