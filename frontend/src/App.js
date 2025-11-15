@@ -86,7 +86,7 @@ function App() {
       <li className="list-group-item d-flex justify-content-between align-items-center">
         <div>
           <p className="mb-0 fw-bold">{cancion.titulo}</p>
-          <small className="text-muted">Artista: {cancion.artista} | Duración: {cancion.duracion}</small>
+          <small className="text-muted">Artista: {cancion.artista} | tiempo total: {cancion.duracion}</small>
         </div>
         
         <div className="btn-group btn-group-sm">
