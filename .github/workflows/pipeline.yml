@@ -66,4 +66,4 @@ jobs:
         # Aquí podríamos correr 'npm test' si tuvieras tests configurados.
         # Por ahora, solo verificamos que las dependencias instalen bien.
         echo "Backend dependencias instaladas correctamente."
-```
+
