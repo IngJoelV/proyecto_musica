@@ -1,69 +1,47 @@
-name: Pipeline de Integración Continua (CI)
+name: Pipeline CI/CD (Build & Deploy)
 
-# 1. ¿Cuándo se activa el robot?
-# Se activará cada vez que hagas un 'push' o un 'pull request' a la rama 'main'
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
-# 2. ¿Qué tareas va a realizar?
+# Permisos necesarios para que el robot pueda publicar en tu repositorio
+permissions:
+  contents: write
+
 jobs:
-  # --- TAREA 1: VERIFICAR EL FRONTEND ---
-  build-frontend:
-    runs-on: ubuntu-latest # Usamos una máquina virtual Linux prestada por GitHub
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Descargar el código del repositorio
+    # 1. Descargar código
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Configurar Node.js versión 18
+    # 2. Configurar Node
+    - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
 
-    - name: Instalar dependencias del Frontend
+    # 3. Instalar dependencias (Frontend)
+    - name: Install Frontend Dependencies
       run: |
         cd frontend
-        npm ci  # 'npm ci' es más rápido y seguro que 'npm install' para pipelines
-
-    - name: Intentar construir (Build) el Frontend
-      run: |
-        cd frontend
-        # Esto verifica si React compila bien sin errores de sintaxis
-        # Nota: Usamos una variable para tratar los warnings como no fatales si es necesario, 
-        # pero por defecto React falla el build si hay warnings en CI.
-        npm run build --if-present
-      env:
-        CI: false # Ponemos false para que el build no falle por warnings simples (como el de los <a> href)
-
-  # --- TAREA 2: VERIFICAR EL BACKEND ---
-  build-backend:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Descargar el código
-      uses: actions/checkout@v4
-
-    - name: Configurar Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
-
-    - name: Instalar dependencias del Backend
-      run: |
-        cd backend
         npm ci
 
-    - name: Verificar sintaxis (Opcional - Test básico)
+    # 4. Construir el proyecto (Crear la carpeta 'build')
+    - name: Build Frontend
       run: |
-        cd backend
-        # Aquí podríamos correr 'npm test' si tuvieras tests configurados.
-        # Por ahora, solo verificamos que las dependencias instalen bien.
-        echo "Backend dependencias instaladas correctamente."
+        cd frontend
+        npm run build
+      env:
+        CI: false # Evita que falle por warnings simples
 
+    # 5. DESPLIEGUE A GITHUB PAGES (La parte nueva)
+    - name: Deploy to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        folder: frontend/build # La carpeta que queremos subir
+        branch: gh-pages # La rama donde se verá la página

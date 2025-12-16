@@ -1,5 +1,3 @@
-/* src/index.css - MODO OSCURO CORREGIDO */
-
 @import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css");
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
 
@@ -16,62 +14,56 @@ body {
   color: var(--text-primary);
   font-family: 'Poppins', sans-serif;
   min-height: 100vh;
+  /* Fondo base */
+  background: radial-gradient(circle at top left, #2a2a2a, #121212);
 }
 
-/* --- REGLAS PARA FORZAR TEXTO BLANCO EN FORMULARIOS --- */
+/* --- ANIMACIONES --- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-/* 1. El input en sí (Fondo oscuro, texto blanco) */
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* --- FORMULARIOS DARK MODE (Forzando blanco) --- */
 .form-control {
-  background-color: #333333 !important; /* Gris oscuro */
+  background-color: #333333 !important;
   border: 1px solid #555 !important;
-  color: white !important; /* Texto que escribes en blanco */
+  color: white !important;
 }
-
-/* 2. Cuando haces clic en el input */
 .form-control:focus {
   background-color: #404040 !important;
   color: white !important;
   border-color: var(--spotify-green) !important;
   box-shadow: 0 0 0 0.25rem rgba(29, 185, 84, 0.25) !important;
 }
-
-/* 3. El texto "placeholder" (ej: nombre@dominio.com) */
-.form-control::placeholder {
-  color: #888 !important; /* Gris claro */
-}
-
-/* 4. ETIQUETAS FLOTANTES (Floating Labels) */
-/* El texto de la etiqueta cuando está en reposo */
-.form-floating > label {
-  color: #b3b3b3 !important; /* Gris claro, NO negro */
-  background-color: transparent !important; /* Evita parches blancos */
-}
-
-/* El texto de la etiqueta cuando escribes (se va arriba) */
+.form-control::placeholder { color: #888 !important; }
+.form-floating > label { color: #b3b3b3 !important; background-color: transparent !important; }
 .form-floating > .form-control:focus ~ label,
 .form-floating > .form-control:not(:placeholder-shown) ~ label {
-  color: var(--spotify-green) !important; /* Se pone verde */
+  color: var(--spotify-green) !important;
   background-color: transparent !important;
   opacity: 1;
 }
 
-/* --- BOTONES Y ENLACES --- */
+/* --- COMPONENTES --- */
 .btn-spotify {
   background-color: var(--spotify-green);
-  color: black; /* Texto del botón negro para contraste */
+  color: black;
   font-weight: 700;
   border-radius: 50px;
   border: none;
   padding: 12px 30px;
-  letter-spacing: 1px;
   text-transform: uppercase;
-  transition: transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
-
 .btn-spotify:hover {
   background-color: #1ed760;
-  color: black;
-  transform: scale(1.03);
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(29, 185, 84, 0.5);
 }
 
 .link-spotify {
@@ -80,21 +72,69 @@ body {
   font-weight: 600;
   background: none;
   border: none;
-  font-size: 0.9rem;
+  cursor: pointer;
 }
-.link-spotify:hover {
-  color: white;
-  text-decoration: underline;
-}
+.link-spotify:hover { color: white; text-decoration: underline; }
 
-/* --- TARJETAS --- */
+/* Tarjetas de vidrio */
 .card-glass {
-  background-color: #181818; /* Fondo sólido oscuro para asegurar legibilidad */
-  border: 1px solid #333;
-  color: white; /* Asegura que todo el texto dentro sea blanco */
+  background: rgba(30, 30, 30, 0.8);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
 }
 
-/* Asegura que los textos pequeños dentro de la tarjeta sean grises y no negros */
-.text-muted {
-  color: #b3b3b3 !important;
+/* Filas de Canciones */
+.song-row {
+  border-radius: 8px;
+  transition: background-color 0.2s;
+  cursor: default;
 }
+.song-row:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+/* Al pasar el mouse sobre la fila, mostramos el botón de play sobre la portada */
+.song-row:hover .cover-art-overlay {
+  opacity: 1;
+}
+
+/* Portadas Generadas */
+.cover-art {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #444, #222); /* Fallback */
+  flex-shrink: 0;
+}
+.cover-art-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+  cursor: pointer;
+}
+
+/* --- REPRODUCTOR INFERIOR (Bottom Player) --- */
+.bottom-player {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 90px;
+  background-color: #181818;
+  border-top: 1px solid #282828;
+  z-index: 10000; /* Encima de todo */
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
+}
+
+.text-muted { color: #b3b3b3 !important; }
