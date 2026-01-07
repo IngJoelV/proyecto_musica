@@ -385,19 +385,35 @@ function App() {
 
   const getAuthHeaders = () => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` });
 
-  // CARGAR TODO (Inicial)
-  const fetchData = () => {
-    fetch(API_URL + '/canciones').then(r => r.json()).then(d => setCanciones(d)).catch(e => console.error(e));
+// ==========================================
+// CÓDIGO CORREGIDO (fetchData)
+// ==========================================
+const fetchData = () => {
+    // 1. Canciones (Con protección contra errores)
+    fetch(API_URL + '/canciones')
+        .then(r => {
+            if (!r.ok) throw new Error("Error en el servidor");
+            return r.json();
+        })
+        .then(d => {
+            if (Array.isArray(d)) {
+                setCanciones(d);
+            } else {
+                console.error("Los datos recibidos no son un array:", d);
+                setCanciones([]); // Evita el crash usando una lista vacía
+            }
+        })
+        .catch(e => {
+            console.error("Error al cargar canciones:", e);
+            setCanciones([]); // En caso de error, usa lista vacía
+        });
     
+    // ... el resto de tu código (playlists y likes) sigue igual ...
     if (isLoggedIn) {
-        // 2. Playlists
         fetch(API_URL + '/playlists', { headers: getAuthHeaders() }).then(r => r.json()).then(d => setAllPlaylists(d)).catch(e => console.error(e));
-        // 3. Likes
         fetch(API_URL + '/likes', { headers: getAuthHeaders() }).then(r => r.json()).then(d => setLikedSongsIds(d)).catch(e => console.error(e));
     }
-  };
-
-  useEffect(() => { fetchData(); }, [API_URL, user.token, isLoggedIn]);
+};
 
   // --- ACTIONS ---
   // Toggle Like
@@ -531,12 +547,51 @@ function App() {
       setShowExportModal(false);
   };
 
-  const togglePlaylistPrivacy = (id) => {
-      setAllPlaylists(allPlaylists.map(p => (p.id === id && p.owner === user.username) ? { ...p, isPublic: !p.isPublic } : p));
-  };
-  const removeSongFromPlaylistAction = (pid, sid) => {
-      removeSongFromPlaylist(pid, sid);
-  };
+const togglePlaylistPrivacy = async (id) => {
+    // 1. Encontrar la playlist
+    const playlist = allPlaylists.find(p => p.id === id);
+    if (!playlist) return;
+
+    // 2. Calcular el nuevo valor
+    const newPrivacyState = !playlist.isPublic;
+
+    // 3. Actualización Optimista (Actualizar la UI inmediatamente para que se sienta rápido)
+    setAllPlaylists(prev => prev.map(p => 
+        (p.id === id && p.owner === user.username) 
+            ? { ...p, isPublic: newPrivacyState } 
+            : p
+    ));
+
+    // 4. Enviar el cambio a la base de datos
+    try {
+        const res = await fetch(`${API_URL}/playlists/${id}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ 
+                name: playlist.name, // A veces el backend pide el objeto completo
+                isPublic: newPrivacyState 
+            }) 
+        });
+
+        if (!res.ok) throw new Error("Error al guardar en el servidor");
+        
+        // Opcional: Si el servidor devuelve la playlist actualizada, puedes usar fetchData()
+        // fetchData(); 
+
+    } catch (error) {
+        console.error("Error cambiando privacidad:", error);
+        alert("No se pudo guardar el cambio. Revisa tu conexión.");
+        // Revertir el cambio visual si falló el servidor
+        setAllPlaylists(prev => prev.map(p => 
+            p.id === id ? { ...p, isPublic: !newPrivacyState } : p
+        ));
+    }
+};
+const removeSongFromPlaylistAction = (pid, sid) => {
+    if (window.confirm("¿Seguro que quieres quitar esta canción de la lista?")) {
+        removeSongFromPlaylist(pid, sid);
+    }
+};
 
   const userPlaylists = allPlaylists; 
   const displaySongs = searchTerm 
