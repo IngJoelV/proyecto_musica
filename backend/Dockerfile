@@ -1,22 +1,22 @@
-# 1. Usar una imagen base de Node.js ligera (Alpine Linux)
-FROM node:18-alpine
+# CAMBIO CLAVE: Usamos 'node:18' (versión completa) en lugar de 'alpine'.
+# Esto es un poco más pesado, pero evita todos los errores de compilación con bcrypt.
+FROM node:18
 
-# 2. Crear y definir el directorio de trabajo dentro del contenedor
+# Creamos la carpeta de trabajo
 WORKDIR /app
 
-# 3. Copiar los archivos de definición de dependencias
-# Se copian primero para aprovechar la caché de capas de Docker
+# Copiamos los archivos de dependencias primero
 COPY package*.json ./
 
-# 4. Instalar solo las dependencias de producción
-RUN npm install --only=production
+# Instalamos las dependencias
+# Nota: Quitamos '--production' para asegurar que se instalen herramientas de compilación si hacen falta
+RUN npm install
 
-# 5. Copiar el resto del código fuente del backend
+# Copiamos el resto del código
 COPY . .
 
-# 6. Exponer el puerto en el que corre tu app (según el Word es el 4000 o 3001)
-# Ajustamos al puerto estándar que definimos en los pasos anteriores
+# Exponemos el puerto
 EXPOSE 3001
 
-# 7. Comando para arrancar la aplicación
-CMD ["npm", "start"]
+# Arrancamos
+CMD ["node", "server.js"]
