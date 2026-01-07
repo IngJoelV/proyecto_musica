@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 // CONFIGURACIÓN DE LA API
 // ==========================================
 // Apuntamos a tu servidor en Render
-const API_URL = 'https://proyecto-musica-b69w.onrender.com';
+const API_URL = 'https://musica-o2xj.onrender.com';
 
 // ==========================================
 // 1. COMPONENTE DE LOGIN
