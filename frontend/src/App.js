@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 
 // ==========================================
-// CONFIGURACIÓN DE LA API (Render vs Local)
+// CONFIGURACIÓN DE LA API
 // ==========================================
-// Usa tu dirección de Render. Si estás probando en tu PC, puedes cambiarla a http://localhost:3001
+// Apuntamos a tu servidor en Render
 const API_URL = 'https://proyecto-musica-b69w.onrender.com';
 
 // ==========================================
-// 1. COMPONENTE LOGIN
+// 1. COMPONENTE DE LOGIN
 // ==========================================
 function LoginAuth({ onAuthSubmit }) {
     const [username, setUsername] = useState('');
@@ -20,386 +20,367 @@ function LoginAuth({ onAuthSubmit }) {
     };
 
     return (
-        <div className="d-flex justify-content-center align-items-center vh-100" style={{ background: 'radial-gradient(circle, #202020 0%, #000000 100%)' }}>
-            <div className="card card-glass shadow-lg p-4 fade-in" style={{ width: '100%', maxWidth: '420px', borderRadius: '20px' }}>
-                <div className="card-body p-4 text-center">
-                    <div className="mb-4">
-                        <i className="bi bi-music-note-beamed text-success" style={{ fontSize: '3.5rem', filter: 'drop-shadow(0 0 10px rgba(29,185,84,0.5))' }}></i>
-                        <h2 className="fw-bold mt-2 text-white">Música Local</h2>
-                    </div>
-                    <h6 className="mb-4 text-white-50">{isLoginView ? 'Inicia sesión para continuar' : 'Crea una cuenta nueva'}</h6>
-                    
-                    <form onSubmit={handleSubmit}>
-                        <div className="form-floating mb-3">
-                            <input required type="text" className="form-control bg-dark text-white border-secondary" 
-                                placeholder="Usuario" value={username} onChange={e => setUsername(e.target.value)} />
-                            <label className="text-white-50">Usuario</label>
-                        </div>
-                        <div className="form-floating mb-3">
-                            <input required type="password" className="form-control bg-dark text-white border-secondary" 
-                                placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} />
-                            <label className="text-white-50">Contraseña</label>
-                        </div>
-                        <button type="submit" className="btn btn-success w-100 py-2 fw-bold fs-5 shadow-sm btn-hover-scale">
-                            {isLoginView ? 'Entrar' : 'Registrarse'}
-                        </button>
-                    </form>
-                    
-                    <div className="mt-4">
-                        <button className="btn btn-link text-decoration-none text-success small" onClick={() => setIsLoginView(!isLoginView)}>
-                            {isLoginView ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
-                        </button>
-                    </div>
+        <div className="d-flex justify-content-center align-items-center vh-100 bg-black">
+            <div className="card bg-dark text-white border-secondary shadow-lg p-4" style={{ width: '100%', maxWidth: '400px' }}>
+                <div className="text-center mb-4">
+                    <i className="bi bi-spotify text-success" style={{ fontSize: '3rem' }}></i>
+                    <h2 className="fw-bold mt-2">Música App</h2>
+                    <p className="text-white-50">{isLoginView ? 'Inicia sesión' : 'Regístrate'}</p>
                 </div>
-            </div>
-        </div>
-    );
-}
-
-// ==========================================
-// 2. COMPONENTE ITEM DE CANCIÓN
-// ==========================================
-function CancionItem({ cancion, index, onDelete, onPlay, onAddToPlaylist, onToggleLike, isLiked }) {
-    return (
-        <div className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary mb-2 rounded hover-bg-gray fade-in" 
-             style={{ animationDelay: `${index * 0.05}s`, transition: 'all 0.2s' }}>
-            <div className="d-flex align-items-center flex-grow-1" onClick={() => onPlay(cancion)} style={{ cursor: 'pointer' }}>
-                <span className="text-muted me-3 fw-bold" style={{ width: '20px' }}>{index + 1}</span>
-                <div className="bg-secondary rounded d-flex justify-content-center align-items-center me-3" style={{ width: '45px', height: '45px' }}>
-                    <i className="bi bi-music-note text-white fs-4"></i>
-                </div>
-                <div>
-                    <div className="fw-bold text-truncate" style={{ maxWidth: '200px' }}>{cancion.titulo}</div>
-                    <div className="small text-white-50">{cancion.artista} • {cancion.album}</div>
-                </div>
-            </div>
-            
-            <div className="d-flex align-items-center gap-2">
-                <span className="badge bg-secondary rounded-pill me-2">{cancion.duracion}</span>
                 
-                {/* Botón Like */}
-                <button className="btn btn-icon text-white-50 hover-text-success" onClick={(e) => { e.stopPropagation(); onToggleLike(cancion.id); }}>
-                    <i className={`bi ${isLiked ? 'bi-heart-fill text-success' : 'bi-heart'}`}></i>
-                </button>
-
-                {/* Botón Agregar a Playlist */}
-                <button className="btn btn-icon text-white-50 hover-text-white" onClick={(e) => { e.stopPropagation(); onAddToPlaylist(cancion.id); }}>
-                    <i className="bi bi-plus-circle"></i>
-                </button>
-
-                {/* Botón Borrar (Solo Admin o Dueño) */}
-                <button className="btn btn-icon text-white-50 hover-text-danger" onClick={(e) => { e.stopPropagation(); onDelete(cancion.id); }}>
-                    <i className="bi bi-trash"></i>
-                </button>
+                <form onSubmit={handleSubmit}>
+                    <div className="mb-3">
+                        <input required type="text" className="form-control bg-dark text-white border-secondary" 
+                            placeholder="Usuario" value={username} onChange={e => setUsername(e.target.value)} />
+                    </div>
+                    <div className="mb-3">
+                        <input required type="password" className="form-control bg-dark text-white border-secondary" 
+                            placeholder="Contraseña" value={password} onChange={e => setPassword(e.target.value)} />
+                    </div>
+                    <button type="submit" className="btn btn-success w-100 fw-bold py-2">
+                        {isLoginView ? 'Entrar' : 'Registrarse'}
+                    </button>
+                </form>
+                
+                <div className="mt-3 text-center">
+                    <button className="btn btn-link text-success text-decoration-none btn-sm" onClick={() => setIsLoginView(!isLoginView)}>
+                        {isLoginView ? '¿No tienes cuenta? Crea una' : '¿Ya tienes cuenta? Ingresa'}
+                    </button>
+                </div>
             </div>
         </div>
     );
 }
 
 // ==========================================
-// 3. APLICACIÓN PRINCIPAL
+// 2. APLICACIÓN PRINCIPAL
 // ==========================================
 function App() {
-    const [canciones, setCanciones] = useState([]);
-    const [userPlaylists, setUserPlaylists] = useState([]); // Playlists del usuario
-    const [likedSongsIds, setLikedSongsIds] = useState([]); // IDs de canciones con like
-    
-    // Estados del formulario
-    const [titulo, setTitulo] = useState('');
-    const [artista, setArtista] = useState('');
-    const [album, setAlbum] = useState('');
-    const [duracion, setDuracion] = useState('');
-    const [url, setUrl] = useState('');
-    
-    // Estados de UI y Reproductor
-    const [currentSong, setCurrentSong] = useState(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [showForm, setShowForm] = useState(false);
-    
-    // Estados de Usuario
+    // --- ESTADOS DE DATOS ---
     const [user, setUser] = useState(null);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [canciones, setCanciones] = useState([]);
+    const [userPlaylists, setUserPlaylists] = useState([]);
+    const [likedSongsIds, setLikedSongsIds] = useState([]);
 
+    // --- ESTADOS DE FORMULARIO (ADMIN + ITUNES) ---
+    const [showForm, setShowForm] = useState(false);
+    const [itunesQuery, setItunesQuery] = useState('');
+    const [itunesResults, setItunesResults] = useState([]);
+    const [form, setForm] = useState({ titulo: '', artista: '', album: '', duracion: '', url: '' });
+
+    // --- REPRODUCTOR ---
+    const [currentSong, setCurrentSong] = useState(null);
     const audioRef = useRef(null);
 
-    // --- MANEJO DE SESIÓN ---
+    // --- INICIALIZACIÓN ---
     useEffect(() => {
         const storedUser = localStorage.getItem('music_user');
-        if(storedUser) {
-            setUser(JSON.parse(storedUser));
-            setIsLoggedIn(true);
+        if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+            fetchData(parsedUser);
         }
     }, []);
 
-    useEffect(() => {
-        if(isLoggedIn) fetchData();
-    }, [isLoggedIn]);
+    // Helper para headers
+    const getAuthHeaders = () => user ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` } : {};
 
-    const getAuthHeaders = () => {
-        return user ? { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${user.token}` 
-        } : {};
+    // --- CARGA DE DATOS ---
+    const fetchData = (currentUser) => {
+        if (!currentUser) return;
+        
+        // 1. Canciones (Públicas)
+        fetch(`${API_URL}/canciones`)
+            .then(r => r.json())
+            .then(d => setCanciones(Array.isArray(d) ? d : []))
+            .catch(e => console.error("Error canciones:", e));
+
+        // 2. Playlists y Likes (Privados)
+        if (currentUser.id) {
+            fetch(`${API_URL}/playlists?userId=${currentUser.id}`, { headers: { 'Authorization': `Bearer ${currentUser.token}` } })
+                .then(r => r.json())
+                .then(d => setUserPlaylists(Array.isArray(d) ? d : []))
+                .catch(e => console.error("Error playlists:", e));
+
+            fetch(`${API_URL}/likes?userId=${currentUser.id}`, { headers: { 'Authorization': `Bearer ${currentUser.token}` } })
+                .then(r => r.json())
+                .then(d => setLikedSongsIds(Array.isArray(d) ? d : []))
+                .catch(e => console.error("Error likes:", e));
+        }
     };
 
+    // --- AUTENTICACIÓN ---
     const handleAuth = async (isLogin, data) => {
-        const endpoint = isLogin ? '/login' : '/register';
         try {
-            const res = await fetch(API_URL + endpoint, {
+            const res = await fetch(`${API_URL}/${isLogin ? 'login' : 'register'}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
             const result = await res.json();
-            if(res.ok) {
-                const userData = isLogin ? { ...result, id: result.token ? JSON.parse(atob(result.token.split('.')[1])).id : 0 } : result;
-                // Decodificamos el token para sacar el ID si no viene explícito, o confiamos en que el login devuelva todo
-                // Nota: Tu backend ahora devuelve token, role, username. El ID viene dentro del token payload.
+            
+            if (res.ok) {
+                // Si el login devuelve el ID directamente, úsalo. Si no, intenta decodificar.
+                let userId = result.id;
+                if (!userId && result.token) {
+                    try { userId = JSON.parse(atob(result.token.split('.')[1])).id; } catch(e){}
+                }
                 
-                // MEJORA: Decodificar token para obtener ID real si no viene en el body
-                const payload = JSON.parse(atob(result.token.split('.')[1]));
-                const finalUser = { ...result, id: payload.id };
-
+                const finalUser = { ...result, id: userId };
                 setUser(finalUser);
-                setIsLoggedIn(true);
                 localStorage.setItem('music_user', JSON.stringify(finalUser));
+                fetchData(finalUser);
             } else {
-                alert(result.error);
+                alert(result.error || "Error de autenticación");
             }
-        } catch (error) { console.error("Error Auth:", error); alert("Error de conexión"); }
+        } catch (error) { console.error(error); alert("Error de conexión"); }
     };
 
     const handleLogout = () => {
         setUser(null);
-        setIsLoggedIn(false);
-        localStorage.removeItem('music_user');
         setCanciones([]);
         setUserPlaylists([]);
+        localStorage.removeItem('music_user');
     };
 
-    // --- CARGAR DATOS ---
-    const fetchData = () => {
-        if (!user) return;
-
-        // 1. Canciones
-        fetch(API_URL + '/canciones', { headers: getAuthHeaders() })
-            .then(r => r.json())
-            .then(d => setCanciones(Array.isArray(d) ? d : []))
-            .catch(e => console.error(e));
-
-        // 2. Playlists y Likes (Usamos user.id)
-        if(user.id) {
-            fetch(`${API_URL}/playlists?userId=${user.id}`, { headers: getAuthHeaders() })
-                .then(r => r.json())
-                .then(d => setUserPlaylists(d))
-                .catch(e => console.error(e));
-
-            fetch(`${API_URL}/likes?userId=${user.id}`, { headers: getAuthHeaders() })
-                .then(r => r.json())
-                .then(d => setLikedSongsIds(d))
-                .catch(e => console.error(e));
-        }
+    // --- LÓGICA ITUNES (NUEVO) ---
+    const searchItunes = async (e) => {
+        e.preventDefault();
+        if (!itunesQuery) return;
+        try {
+            const res = await fetch(`https://itunes.apple.com/search?term=${itunesQuery}&media=music&limit=4`);
+            const data = await res.json();
+            setItunesResults(data.results);
+        } catch (error) { alert("Error buscando en iTunes"); }
     };
 
-    // --- FUNCIONES DE PLAYLISTS ---
+    const selectItunesSong = (track) => {
+        setForm({
+            titulo: track.trackName,
+            artista: track.artistName,
+            album: track.collectionName,
+            duracion: '0:30', // iTunes preview suele ser 30s
+            url: track.previewUrl
+        });
+        setItunesResults([]); // Limpiar resultados
+        setItunesQuery('');
+    };
+
+    // --- ACCIONES ADMIN (SUBIR / BORRAR) ---
+    const handleUpload = async (e) => {
+        e.preventDefault();
+        try {
+            await fetch(`${API_URL}/canciones`, {
+                method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(form)
+            });
+            setForm({ titulo: '', artista: '', album: '', duracion: '', url: '' });
+            setShowForm(false);
+            fetchData(user);
+            alert("¡Canción subida con éxito!");
+        } catch (e) { console.error(e); }
+    };
+
+    const deleteSong = async (id) => {
+        if (!window.confirm("¿ADMIN: Eliminar esta canción para todos?")) return;
+        try {
+            await fetch(`${API_URL}/canciones/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+            fetchData(user);
+        } catch (e) { console.error(e); }
+    };
+
+    // --- ACCIONES PLAYLISTS ---
     const createPlaylist = async () => {
-        const name = prompt("Nombre de la nueva playlist:");
-        if (name && user.id) {
-            try {
-                await fetch(API_URL + '/playlists', { 
-                    method: 'POST', 
-                    headers: getAuthHeaders(), 
-                    body: JSON.stringify({ name, userId: user.id }) 
-                });
-                fetchData();
-            } catch(e) { console.error(e); }
+        const name = prompt("Nombre de la playlist:");
+        if (name) {
+            await fetch(`${API_URL}/playlists`, {
+                method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ name, userId: user.id })
+            });
+            fetchData(user);
         }
     };
 
     const deletePlaylist = async (id) => {
-        if(!window.confirm("¿Estás seguro de eliminar esta playlist?")) return;
-        try {
-            await fetch(`${API_URL}/playlists/${id}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders()
-            });
-            fetchData();
-        } catch(e) { console.error(e); alert("No se pudo eliminar"); }
+        if (window.confirm("¿Eliminar playlist?")) {
+            await fetch(`${API_URL}/playlists/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+            fetchData(user);
+        }
     };
 
     const addToPlaylist = async (songId) => {
-        if(userPlaylists.length === 0) return alert("¡Crea una playlist primero!");
-        // Por simplicidad, agregamos a la primera playlist o preguntamos (aquí simplificado)
-        // Puedes mejorar esto con un modal, pero por ahora usaremos prompt de ID o agregaremos a la más reciente.
-        // Opción rápida: Agregar a la primera playlist encontrada.
-        const playlistId = userPlaylists[0].id; 
+        if (userPlaylists.length === 0) return alert("Primero crea una playlist en el menú lateral.");
+        // Por defecto agregamos a la primera playlist (se puede mejorar con un modal)
+        const targetPlaylist = userPlaylists[0];
         
-        // O mejor: Prompt para preguntar a cuál (si sabes el ID o índice)
-        // Para no complicar, vamos a agregar a la Playlist "0" (la primera).
-        // Si quieres elegir, necesitarías un modal.
-        
-        try {
-            await fetch(`${API_URL}/playlists/${playlistId}/songs`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ song_id: songId })
+        if(window.confirm(`¿Agregar a "${targetPlaylist.name}"?`)) {
+            await fetch(`${API_URL}/playlists/${targetPlaylist.id}/songs`, {
+                method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ song_id: songId })
             });
-            alert("Agregada a " + userPlaylists[0].name);
-            fetchData();
-        } catch(e) { console.error(e); }
-    };
-
-    // --- FUNCIONES DE CANCIONES ---
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            await fetch(API_URL + '/canciones', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ titulo, artista, album, duracion, url })
-            });
-            setTitulo(''); setArtista(''); setAlbum(''); setDuracion(''); setUrl(''); setShowForm(false);
-            fetchData();
-        } catch(e) { console.error(e); }
-    };
-
-    const deleteCancion = async (id) => {
-        if(!window.confirm("¿Borrar canción?")) return;
-        try {
-            await fetch(`${API_URL}/canciones/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
-            fetchData();
-        } catch(e) { console.error(e); }
+            fetchData(user);
+        }
     };
 
     const toggleLike = async (songId) => {
-        if(!user.id) return;
-        try {
-            await fetch(API_URL + '/likes', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ song_id: songId, userId: user.id })
-            });
-            fetchData(); // Recargar likes
-        } catch(e) { console.error(e); }
+        await fetch(`${API_URL}/likes`, {
+            method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ song_id: songId, userId: user.id })
+        });
+        fetchData(user);
     };
 
-    // --- REPRODUCTOR ---
-    const playSong = (song) => {
-        setCurrentSong(song);
-        setIsPlaying(true);
-    };
-
+    // --- EFECTO REPRODUCTOR ---
     useEffect(() => {
         if (currentSong && audioRef.current) {
             audioRef.current.src = currentSong.url;
-            audioRef.current.play().catch(e => console.error("Error reproducción:", e));
+            audioRef.current.play().catch(e => console.error("Auto-play error:", e));
         }
     }, [currentSong]);
 
+
     // ==========================================
-    // RENDERIZADO
+    // RENDERIZADO DE LA UI
     // ==========================================
-    if (!isLoggedIn) return <LoginAuth onAuthSubmit={handleAuth} />;
+    if (!user) return <LoginAuth onAuthSubmit={handleAuth} />;
 
     return (
-        <div className="bg-black min-vh-100 text-white font-monospace">
-            <div className="container-fluid d-flex flex-column" style={{ height: '100vh' }}>
-                
-                {/* HEADER */}
-                <div className="d-flex justify-content-between align-items-center p-3 border-bottom border-secondary bg-dark shadow-sm">
-                    <h3 className="m-0 fw-bold text-success"><i className="bi bi-spotify me-2"></i>Música</h3>
-                    <div className="d-flex gap-3 align-items-center">
-                        <span className="text-white-50">Hola, {user.username}</span>
-                        <button className="btn btn-outline-success btn-sm" onClick={() => setShowForm(!showForm)}>
-                            <i className={`bi ${showForm ? 'bi-x-lg' : 'bi-plus-lg'} me-1`}></i>Subir
+        <div className="d-flex flex-column vh-100 bg-black text-white font-monospace">
+            
+            {/* NAVBAR */}
+            <div className="d-flex justify-content-between align-items-center p-3 border-bottom border-secondary bg-dark">
+                <div className="d-flex align-items-center">
+                    <i className="bi bi-spotify text-success fs-3 me-2"></i>
+                    <h5 className="m-0 fw-bold">Música <span className="badge bg-secondary ms-2" style={{fontSize:'0.6em'}}>{user.role}</span></h5>
+                </div>
+                <div className="d-flex gap-2">
+                    {user.role === 'admin' && (
+                        <button className={`btn btn-sm ${showForm ? 'btn-secondary' : 'btn-success'}`} onClick={() => setShowForm(!showForm)}>
+                            {showForm ? 'Cerrar Panel' : 'Panel Admin'}
                         </button>
-                        <button className="btn btn-outline-danger btn-sm" onClick={handleLogout}>Salir</button>
-                    </div>
+                    )}
+                    <button className="btn btn-sm btn-outline-danger" onClick={handleLogout}>Salir</button>
                 </div>
-
-                {/* CONTENIDO PRINCIPAL */}
-                <div className="row flex-grow-1 overflow-hidden g-0">
-                    
-                    {/* SIDEBAR (Playlists) */}
-                    <div className="col-md-3 bg-dark border-end border-secondary d-none d-md-flex flex-column p-3">
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                            <h5 className="text-white-50 m-0"><i className="bi bi-collection-play me-2"></i>Tu Biblioteca</h5>
-                            <button className="btn btn-link text-white p-0" onClick={createPlaylist} title="Crear Playlist">
-                                <i className="bi bi-plus-circle fs-4"></i>
-                            </button>
-                        </div>
-                        <div className="overflow-auto custom-scrollbar flex-grow-1">
-                            {userPlaylists.map(p => (
-                                <div key={p.id} className="p-2 mb-2 rounded hover-bg-gray d-flex justify-content-between align-items-center cursor-pointer group-hover-visible">
-                                    <div>
-                                        <div className="fw-bold">{p.name}</div>
-                                        <div className="small text-muted">{p.songs ? p.songs.length : 0} canciones</div>
-                                    </div>
-                                    <button className="btn btn-icon text-danger btn-sm opacity-0 delete-btn" 
-                                            onClick={(e) => { e.stopPropagation(); deletePlaylist(p.id); }}>
-                                        <i className="bi bi-x-circle"></i>
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* ÁREA PRINCIPAL (Canciones) */}
-                    <div className="col-md-9 p-4 overflow-auto custom-scrollbar" style={{ background: 'linear-gradient(180deg, #1e1e1e 0%, #121212 100%)' }}>
-                        
-                        {/* FORMULARIO DE SUBIDA */}
-                        {showForm && (
-                            <div className="card bg-secondary mb-4 p-3 shadow fade-in">
-                                <form onSubmit={handleSubmit} className="row g-2">
-                                    <div className="col-md-4"><input className="form-control form-control-sm bg-dark text-white border-0" placeholder="Título" value={titulo} onChange={e=>setTitulo(e.target.value)} required /></div>
-                                    <div className="col-md-3"><input className="form-control form-control-sm bg-dark text-white border-0" placeholder="Artista" value={artista} onChange={e=>setArtista(e.target.value)} required /></div>
-                                    <div className="col-md-3"><input className="form-control form-control-sm bg-dark text-white border-0" placeholder="URL Audio (mp3)" value={url} onChange={e=>setUrl(e.target.value)} required /></div>
-                                    <div className="col-md-2"><input className="form-control form-control-sm bg-dark text-white border-0" placeholder="Duración" value={duracion} onChange={e=>setDuracion(e.target.value)} /></div>
-                                    <div className="col-12 text-end"><button type="submit" className="btn btn-success btn-sm w-100">Guardar Canción</button></div>
-                                </form>
-                            </div>
-                        )}
-
-                        <h2 className="fw-bold mb-4">Todas las Canciones</h2>
-                        <div className="list-group">
-                            {canciones.map((c, i) => (
-                                <CancionItem 
-                                    key={c.id} 
-                                    cancion={c} 
-                                    index={i} 
-                                    onPlay={playSong} 
-                                    onDelete={deleteCancion}
-                                    onAddToPlaylist={addToPlaylist}
-                                    onToggleLike={toggleLike}
-                                    isLiked={likedSongsIds.includes(c.id)}
-                                />
-                            ))}
-                            {canciones.length === 0 && <div className="text-muted p-4 text-center">No hay canciones. ¡Sube la primera!</div>}
-                        </div>
-                    </div>
-                </div>
-
-                {/* REPRODUCTOR FIXED BOTTOM */}
-                {currentSong && (
-                    <div className="bg-dark border-top border-secondary p-3 d-flex align-items-center justify-content-between shadow-lg" style={{ height: '90px', zIndex: 1000 }}>
-                        <div className="d-flex align-items-center w-25">
-                            <div className="bg-secondary d-flex justify-content-center align-items-center rounded me-3" style={{width:'56px', height:'56px'}}>
-                                <i className="bi bi-music-note-beamed text-white fs-3"></i>
-                            </div>
-                            <div className="text-truncate">
-                                <div className="fw-bold text-white text-truncate">{currentSong.titulo}</div>
-                                <div className="small text-white-50">{currentSong.artista}</div>
-                            </div>
-                        </div>
-                        <div className="w-50 text-center">
-                            <audio ref={audioRef} controls autoPlay className="w-100 custom-audio" />
-                        </div>
-                        <div className="w-25 text-end pe-3">
-                             <button className="btn btn-icon text-white-50"><i className="bi bi-volume-up"></i></button>
-                        </div>
-                    </div>
-                )}
             </div>
+
+            <div className="d-flex flex-grow-1 overflow-hidden">
+                
+                {/* SIDEBAR (PLAYLISTS) */}
+                <div className="d-none d-md-flex flex-column p-3 bg-dark border-end border-secondary" style={{ width: '250px' }}>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                        <span className="text-white-50 fw-bold small">TU BIBLIOTECA</span>
+                        <button className="btn btn-link text-white p-0" onClick={createPlaylist}><i className="bi bi-plus-lg"></i></button>
+                    </div>
+                    
+                    <div className="overflow-auto flex-grow-1 custom-scrollbar">
+                        {userPlaylists.map(p => (
+                            <div key={p.id} className="p-2 mb-1 rounded hover-bg-gray d-flex justify-content-between align-items-center group-hover-visible">
+                                <div className="text-truncate" style={{maxWidth:'180px'}}>
+                                    <div>{p.name}</div>
+                                    <div className="small text-muted" style={{fontSize:'0.75rem'}}>{p.songs ? p.songs.length : 0} canciones</div>
+                                </div>
+                                <i className="bi bi-x text-danger opacity-0 delete-btn" style={{cursor:'pointer'}} onClick={() => deletePlaylist(p.id)}></i>
+                            </div>
+                        ))}
+                        {userPlaylists.length === 0 && <div className="small text-muted fst-italic">Sin playlists</div>}
+                    </div>
+                </div>
+
+                {/* MAIN CONTENT */}
+                <div className="flex-grow-1 p-4 overflow-auto custom-scrollbar">
+                    
+                    {/* PANEL DE ADMINISTRADOR (ITUNES + FORMULARIO) */}
+                    {showForm && user.role === 'admin' && (
+                        <div className="card bg-secondary text-white mb-4 p-3 shadow fade-in">
+                            <h5 className="mb-3"><i className="bi bi-magic me-2"></i>Subida Inteligente</h5>
+                            
+                            {/* Buscador iTunes */}
+                            <form onSubmit={searchItunes} className="d-flex gap-2 mb-3">
+                                <input className="form-control form-control-sm bg-dark text-white border-0" 
+                                    placeholder="Buscar canción en iTunes (ej: Bad Bunny)" 
+                                    value={itunesQuery} onChange={e => setItunesQuery(e.target.value)} />
+                                <button type="submit" className="btn btn-primary btn-sm">Buscar</button>
+                            </form>
+
+                            {/* Resultados iTunes */}
+                            {itunesResults.length > 0 && (
+                                <div className="list-group mb-3">
+                                    {itunesResults.map((track, i) => (
+                                        <button key={i} className="list-group-item list-group-item-action bg-dark text-white border-secondary d-flex justify-content-between align-items-center"
+                                                onClick={() => selectItunesSong(track)}>
+                                            <div className="d-flex align-items-center">
+                                                <img src={track.artworkUrl60} alt="cover" className="rounded me-3" style={{width:'40px'}}/>
+                                                <div>
+                                                    <div className="fw-bold small">{track.trackName}</div>
+                                                    <div className="small text-white-50">{track.artistName}</div>
+                                                </div>
+                                            </div>
+                                            <span className="badge bg-success">Usar</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Formulario de Edición */}
+                            <form onSubmit={handleUpload} className="row g-2 border-top border-dark pt-3">
+                                <div className="col-md-6"><input className="form-control form-control-sm bg-dark text-white border-0" placeholder="Título" value={form.titulo} onChange={e=>setForm({...form, titulo:e.target.value})} required/></div>
+                                <div className="col-md-6"><input className="form-control form-control-sm bg-dark text-white border-0" placeholder="Artista" value={form.artista} onChange={e=>setForm({...form, artista:e.target.value})} required/></div>
+                                <div className="col-md-6"><input className="form-control form-control-sm bg-dark text-white border-0" placeholder="Álbum" value={form.album} onChange={e=>setForm({...form, album:e.target.value})} required/></div>
+                                <div className="col-md-6"><input className="form-control form-control-sm bg-dark text-white border-0" placeholder="URL Audio" value={form.url} onChange={e=>setForm({...form, url:e.target.value})} required/></div>
+                                <div className="col-12"><button className="btn btn-success btn-sm w-100 fw-bold">Guardar Canción</button></div>
+                            </form>
+                        </div>
+                    )}
+
+                    {/* LISTA DE CANCIONES */}
+                    <h4 className="fw-bold mb-3">Canciones Disponibles</h4>
+                    <div className="list-group">
+                        {canciones.map((c, i) => (
+                            <div key={c.id} className="list-group-item bg-dark text-white border-secondary d-flex justify-content-between align-items-center mb-2 rounded hover-bg-gray">
+                                <div className="d-flex align-items-center flex-grow-1" style={{cursor:'pointer'}} onClick={() => { setCurrentSong(c); }}>
+                                    <span className="text-muted me-3" style={{width:'20px'}}>{i + 1}</span>
+                                    <div>
+                                        <div className="fw-bold text-truncate" style={{maxWidth:'250px'}}>{c.titulo}</div>
+                                        <div className="small text-white-50">{c.artista}</div>
+                                    </div>
+                                </div>
+                                
+                                <div className="d-flex align-items-center gap-2">
+                                    <button className="btn btn-icon text-white-50 hover-text-success" onClick={() => toggleLike(c.id)}>
+                                        <i className={`bi ${likedSongsIds.includes(c.id) ? 'bi-heart-fill text-success' : 'bi-heart'}`}></i>
+                                    </button>
+                                    <button className="btn btn-icon text-white-50 hover-text-white" onClick={() => addToPlaylist(c.id)}>
+                                        <i className="bi bi-plus-circle"></i>
+                                    </button>
+                                    
+                                    {/* SOLO ADMIN VE BOTÓN DE BORRAR */}
+                                    {user.role === 'admin' && (
+                                        <button className="btn btn-icon text-white-50 hover-text-danger ms-2" onClick={() => deleteSong(c.id)}>
+                                            <i className="bi bi-trash"></i>
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                        {canciones.length === 0 && <div className="text-center p-5 text-muted">No hay canciones aún.</div>}
+                    </div>
+                </div>
+            </div>
+
+            {/* BARRA DE REPRODUCCIÓN */}
+            {currentSong && (
+                <div className="bg-dark border-top border-secondary p-2 d-flex align-items-center justify-content-between shadow-lg" style={{ height: '85px', zIndex: 100 }}>
+                    <div className="d-flex align-items-center w-25 ms-3">
+                        <div className="bg-secondary d-flex justify-content-center align-items-center rounded me-3" style={{width:'50px', height:'50px'}}>
+                            <i className="bi bi-music-note-beamed fs-4"></i>
+                        </div>
+                        <div className="text-truncate">
+                            <div className="fw-bold text-truncate">{currentSong.titulo}</div>
+                            <div className="small text-white-50">{currentSong.artista}</div>
+                        </div>
+                    </div>
+                    <div className="w-50 text-center">
+                        <audio ref={audioRef} controls className="w-100 custom-audio" />
+                    </div>
+                    <div className="w-25 text-end me-3"></div>
+                </div>
+            )}
         </div>
     );
 }
