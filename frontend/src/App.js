@@ -144,7 +144,7 @@ function SmartAddModal({ onClose, onSave }) {
                                 )}
                                 
                                 <div className="text-center mt-4">
-                                    <button className="btn btn-link text-white-50 text-decoration-none small" onClick={() => setManualMode(true)}>No lo encuentro, ingresar manualmente</button>
+                     z               <button className="btn btn-link text-white-50 text-decoration-none small" onClick={() => setManualMode(true)}>No lo encuentro, ingresar manualmente</button>
                                 </div>
                             </>
                         ) : (
@@ -388,40 +388,48 @@ function App() {
 // ==========================================
 // CÓDIGO CORREGIDO (fetchData)
 // ==========================================
+// Función para cargar datos (CORREGIDA)
 const fetchData = () => {
-    // 1. Canciones (Con protección contra errores)
-    fetch(API_URL + '/canciones')
+    // Si no hay usuario logueado, no intentamos cargar nada para evitar errores
+    if (!isLoggedIn || !user || !user.token) return;
+
+    // 1. Cargar Canciones (AHORA CON TOKEN)
+    // Agregamos { headers: getAuthHeaders() } para que el servidor nos deje pasar
+    fetch(API_URL + '/canciones', { headers: getAuthHeaders() }) 
         .then(r => {
-            if (!r.ok) throw new Error("Error en el servidor");
+            if (!r.ok) throw new Error("Error cargando canciones");
             return r.json();
         })
-        .then(d => {
-            if (Array.isArray(d)) {
-                setCanciones(d);
-            } else {
-                console.error("Los datos recibidos no son un array:", d);
-                setCanciones([]); // Evita el crash usando una lista vacía
-            }
-        })
-        .catch(e => {
-            console.error("Error al cargar canciones:", e);
-            setCanciones([]); // En caso de error, usa lista vacía
-        });
+        .then(d => setCanciones(Array.isArray(d) ? d : []))
+        .catch(e => console.error("Error canciones:", e));
     
-    // ... el resto de tu código (playlists y likes) sigue igual ...
-    if (isLoggedIn) {
-        fetch(API_URL + '/playlists', { headers: getAuthHeaders() }).then(r => r.json()).then(d => setAllPlaylists(d)).catch(e => console.error(e));
-        fetch(API_URL + '/likes', { headers: getAuthHeaders() }).then(r => r.json()).then(d => setLikedSongsIds(d)).catch(e => console.error(e));
+    // 2. Cargar Playlists y Likes (SOLO SI TENEMOS ID)
+    if (user.id) {
+        // Playlists
+        fetch(`${API_URL}/playlists?userId=${user.id}`, { headers: getAuthHeaders() })
+            .then(r => r.json())
+            .then(d => setAllPlaylists(d))
+            .catch(e => console.error("Error playlists:", e));
+
+        // Likes
+        fetch(`${API_URL}/likes?userId=${user.id}`, { headers: getAuthHeaders() })
+            .then(r => r.json())
+            .then(d => setLikedSongsIds(d))
+            .catch(e => console.error("Error likes:", e));
     }
 };
-
   // --- ACTIONS ---
   // Toggle Like
-  const toggleLike = async (song) => {
-      try {
-          const res = await fetch(API_URL + '/likes', {
-              method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ song_id: song.id })
-          });
+const toggleLike = async (song) => {
+    if (!user.id) return; // Protección
+    try {
+        const res = await fetch(API_URL + '/likes', {
+            method: 'POST', 
+            headers: getAuthHeaders(), 
+            // AQUI FALTABA EL ID
+            body: JSON.stringify({ song_id: song.id, userId: user.id })
+        });
+        // ... el resto sigue igual
           const data = await res.json();
           if (data.liked) setLikedSongsIds([...likedSongsIds, song.id]);
           else setLikedSongsIds(likedSongsIds.filter(id => id !== song.id));
@@ -472,15 +480,20 @@ const fetchData = () => {
     } catch { setLyrics('Error buscando letra.'); } finally { setLoadingLyrics(false); }
   };
 
-  const createPlaylist = async () => {
-      const name = prompt("Nombre de la playlist:");
-      if(name) {
-          try {
-              await fetch(API_URL + '/playlists', { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ name }) });
-              fetchData();
-          } catch(e) { console.error(e); }
-      }
-  };
+const createPlaylist = async () => {
+    const name = prompt("Nombre de la playlist:");
+    if(name && user.id) { // Verificamos que tengamos ID
+        try {
+            await fetch(API_URL + '/playlists', { 
+                method: 'POST', 
+                headers: getAuthHeaders(), 
+                // AQUI FALTABA EL ID
+                body: JSON.stringify({ name, userId: user.id }) 
+            });
+            fetchData();
+        } catch(e) { console.error(e); }
+    }
+};
 
   const addToPlaylist = async (playlistId, song) => {
       try {
@@ -492,15 +505,20 @@ const fetchData = () => {
       } catch(e) { alert("Error añadiendo a playlist"); }
   };
 
-  const deletePlaylist = async (id) => {
-      if(window.confirm("¿Borrar playlist?")) {
-          try {
-              await fetch(`${API_URL}/playlists/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
-              fetchData();
-          } catch(e) { console.error(e); }
-      }
-  };
-
+  // --- FUNCIÓN QUE TE FALTA ---
+const deletePlaylist = async (id) => {
+    if(!window.confirm("¿Seguro que quieres eliminar esta playlist?")) return;
+    try {
+        await fetch(`${API_URL}/playlists/${id}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders() // Enviamos el permiso
+        });
+        fetchData(); // Recargamos la lista
+    } catch (error) {
+        console.error("Error eliminando playlist:", error);
+    }
+};
+// ----------------------------
   const removeSongFromPlaylist = async (pid, sid) => {
       try {
           await fetch(`${API_URL}/playlists/${pid}/songs/${sid}`, { method: 'DELETE', headers: getAuthHeaders() });
@@ -519,7 +537,8 @@ const fetchData = () => {
           const res = await fetch(`${AUTH_URL}/${endpoint}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(creds) });
           const data = await res.json();
           if(!res.ok) throw new Error(data.error);
-          if(isLogin) setUser({ token: data.token, role: data.role, username: data.username });
+        // AGREGAMOS 'id: data.id' PARA PODER USARLO LUEGO
+if(isLogin) setUser({ token: data.token, role: data.role, username: data.username, id: data.id });
           else alert("Registrado. Inicia sesión.");
       } catch (e) { alert(e.message); }
   };
@@ -599,6 +618,7 @@ const removeSongFromPlaylistAction = (pid, sid) => {
       : canciones.slice(-5).reverse();
 
   // --- COMPONENTE ITEM (REUTILIZABLE) ---
+  
   const CancionItem = ({ cancion, index, isPlaylistView = false, playlistId = null, playlistOwner = null }) => { 
     if (cancion.id === editingId) return <EditForm cancion={cancion} API_URL={API_URL} authHeaders={getAuthHeaders('PUT')} onSave={() => { setEditingId(null); fetchData(); }} onCancel={() => setEditingId(null)} />;
 

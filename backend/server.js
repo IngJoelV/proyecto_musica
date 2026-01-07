@@ -14,17 +14,25 @@ const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
 // ==========================================
 
 // Detectamos si estamos en producción (Render) revisando si existe la variable DATABASE_URL
-const isProduction = !!process.env.DATABASE_URL; 
+// ==========================================
+// CONFIGURACIÓN INTELIGENTE DE BASE DE DATOS
+// ==========================================
+
+// 1. Obtenemos la URL (sea la de Render o la que pasas por Docker)
+const connectionString = process.env.DATABASE_URL || 'postgres://postgres:Dj5624Vc@host.docker.internal:5432/musica';
+
+// 2. PREGUNTA CLAVE: ¿Es la URL de Docker local?
+// Si la URL tiene "host.docker.internal", es local. Si no, asumimos que es Render.
+const isLocalConnection = connectionString.includes('host.docker.internal');
 
 const dbConfig = {
-    // Si existe la variable de entorno, usa esa URL. Si no, usa la local.
-    connectionString: process.env.DATABASE_URL || 'postgres://postgres:Dj5624Vc@host.docker.internal:5432/musica',
+    connectionString: connectionString,
     
-    // CRÍTICO: Render necesita { rejectUnauthorized: false }.
-    // Tu código anterior tenía 'ssl: false', por eso fallaba.
-    ssl: isProduction ? { rejectUnauthorized: false } : false
+    // 3. Lógica de SSL:
+    // - Si es Local (Docker) -> false (Apagado)
+    // - Si es Render -> { rejectUnauthorized: false } (Encendido)
+    ssl: isLocalConnection ? false : { rejectUnauthorized: false }
 };
-
 
 const pool = new Pool(dbConfig);
 
@@ -85,47 +93,107 @@ app.post('/login', async (req, res) => {
 
 app.get('/canciones', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM canciones ORDER BY id ASC');
+        const result = await pool.query('SELECT * FROM canciones ORDER BY id DESC'); // Ordenamos por más nuevas
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: "Error al obtener canciones" });
     }
 });
 
-// --- PLAYLISTS (AQUÍ ESTÁ LO QUE FALTABA) ---
-
-app.get('/playlists', authenticateToken, async (req, res) => {
+// [RUTAS QUE TE FALTABAN]
+// 1. CREAR CANCIÓN
+app.post('/canciones', authenticateToken, async (req, res) => {
+    const { titulo, artista, album, duracion, url } = req.body;
     try {
-        const result = await pool.query('SELECT * FROM playlists WHERE user_id = $1 ORDER BY created_at DESC', [req.user.id]);
+        await pool.query(
+            'INSERT INTO canciones (titulo, artista, album, duracion, url) VALUES ($1, $2, $3, $4, $5)',
+            [titulo, artista, album, duracion, url]
+        );
+        res.json({ message: "Canción guardada" });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// 2. BORRAR CANCIÓN
+app.delete('/canciones/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM canciones WHERE id = $1', [id]);
+        res.json({ message: "Canción eliminada" });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// 3. EDITAR CANCIÓN
+app.put('/canciones/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { titulo, artista, album } = req.body;
+    try {
+        await pool.query('UPDATE canciones SET titulo = $1, artista = $2, album = $3 WHERE id = $4', [titulo, artista, album, id]);
+        res.json({ message: "Canción actualizada" });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// 4. BORRAR PLAYLIST (También te faltaba esta)
+app.delete('/playlists/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    // Solo permitimos borrar si la playlist pertenece al usuario (seguridad extra)
+    try {
+        const check = await pool.query('SELECT * FROM playlists WHERE id = $1 AND user_id = $2', [id, req.user.id]);
+        if (check.rowCount === 0) return res.status(403).json({ error: "No tienes permiso o no existe" });
+
+        await pool.query('DELETE FROM playlists WHERE id = $1', [id]);
+        res.json({ message: "Playlist eliminada" });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// OBTENER PLAYLISTS (Solo las del usuario)
+// OBTENER PLAYLISTS (Versión a prueba de fallos)
+app.get('/playlists', async (req, res) => {
+    const { userId } = req.query;
+
+    // 1. Verificación estricta: Si no hay ID o dice "undefined", devolvemos lista vacía
+    if (!userId || userId === 'undefined' || userId === 'null') {
+        console.log("⚠️ Petición sin usuario válido, devolviendo array vacío.");
+        return res.json([]); 
+    }
+
+    try {
+        // Aseguramos que sea un número entero
+        const idNumerico = parseInt(userId);
+
+        const playlistsQuery = await pool.query(
+            'SELECT * FROM playlists WHERE user_id = $1 ORDER BY id DESC', 
+            [idNumerico]
+        );
         
-        const playlists = await Promise.all(result.rows.map(async (p) => {
-            const songsResult = await pool.query(
+        const playlists = playlistsQuery.rows;
+
+        for (let p of playlists) {
+            const songsQuery = await pool.query(
                 `SELECT c.* FROM canciones c 
                  JOIN playlist_songs ps ON c.id = ps.song_id 
-                 WHERE ps.playlist_id = $1`, [p.id]
+                 WHERE ps.playlist_id = $1`, 
+                [p.id]
             );
-            return { ...p, songs: songsResult.rows, owner: req.user.username };
-        }));
-        
+            p.songs = songsQuery.rows;
+        }
         res.json(playlists);
-    } catch (err) {
-        res.status(500).json({ error: "Error al obtener playlists" });
+    } catch (err) { 
+        console.error("❌ ERROR EN SQL:", err.message); // Esto imprimirá el error real en la consola
+        res.status(500).json({ error: err.message }); 
     }
 });
 
-app.post('/playlists', authenticateToken, async (req, res) => {
-    const { name, is_public } = req.body;
+// CREAR PLAYLIST (Asociada al usuario real)
+app.post('/playlists', async (req, res) => {
+    const { name, userId } = req.body; // <--- Recibimos el ID del usuario
     try {
-        const result = await pool.query(
-            'INSERT INTO playlists (name, user_id, is_public) VALUES ($1, $2, $3) RETURNING *', 
-            [name, req.user.id, is_public || false]
+        await pool.query(
+            'INSERT INTO playlists (name, user_id, is_public) VALUES ($1, $2, $3)', 
+            [name, userId, false] // false = privada por defecto
         );
-        res.status(201).json({ ...result.rows[0], songs: [], owner: req.user.username });
-    } catch (err) {
-        res.status(500).json({ error: "Error al crear playlist" });
-    }
+        res.json({ message: "Playlist creada" });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/playlists/:id/songs', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { song_id } = req.body;
@@ -140,54 +208,93 @@ app.post('/playlists/:id/songs', authenticateToken, async (req, res) => {
     }
 });
 
-// --- LIKES Y PLAYLIST AUTOMÁTICA ---
+// OBTENER LIKES (Solo los míos)
+app.get('/likes', async (req, res) => {
+    const { userId } = req.query; // <--- Recibimos el ID
+    if (!userId) return res.json([]);
 
-app.get('/likes', authenticateToken, async (req, res) => {
     try {
-        const result = await pool.query('SELECT song_id FROM likes WHERE user_id = $1', [req.user.id]);
-        res.json(result.rows.map(row => row.song_id));
-    } catch (err) {
-        res.status(500).json({ error: "Error al obtener likes" });
-    }
+        const result = await pool.query('SELECT song_id FROM likes WHERE user_id = $1', [userId]);
+        const ids = result.rows.map(r => r.song_id);
+        res.json(ids);
+    } catch (err) { res.json([]); }
 });
 
-app.post('/likes', authenticateToken, async (req, res) => {
-    const { song_id } = req.body;
+// DAR / QUITAR LIKE
+app.post('/likes', async (req, res) => {
+    const { song_id, userId } = req.body; // <--- Necesitamos que el Frontend mande el userId
+    
     try {
-        const checkLike = await pool.query('SELECT * FROM likes WHERE user_id = $1 AND song_id = $2', [req.user.id, song_id]);
-        let liked = false;
+        const check = await pool.query('SELECT * FROM likes WHERE user_id = $1 AND song_id = $2', [userId, song_id]);
         
-        if (checkLike.rowCount > 0) {
-            await pool.query('DELETE FROM likes WHERE user_id = $1 AND song_id = $2', [req.user.id, song_id]);
-            liked = false;
+        if (check.rows.length > 0) {
+            await pool.query('DELETE FROM likes WHERE user_id = $1 AND song_id = $2', [userId, song_id]);
+            res.json({ liked: false });
         } else {
-            await pool.query('INSERT INTO likes (user_id, song_id) VALUES ($1, $2)', [req.user.id, song_id]);
-            liked = true;
+            await pool.query('INSERT INTO likes (user_id, song_id) VALUES ($1, $2)', [userId, song_id]);
+            res.json({ liked: true });
         }
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+// ==========================================
+// RUTAS QUE FALTABAN (COPIAR Y PEGAR)
+// ==========================================
 
-        // Gestión automática de "Me Gusta ❤️"
-        let playlistRes = await pool.query("SELECT id FROM playlists WHERE user_id = $1 AND name = 'Me Gusta ❤️'", [req.user.id]);
-        let playlistId;
-
-        if (playlistRes.rowCount === 0) {
-            const newPl = await pool.query("INSERT INTO playlists (name, user_id, is_public) VALUES ('Me Gusta ❤️', $1, false) RETURNING id", [req.user.id]);
-            playlistId = newPl.rows[0].id;
-        } else {
-            playlistId = playlistRes.rows[0].id;
-        }
-
-        if (liked) {
-            await pool.query('INSERT INTO playlist_songs (playlist_id, song_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [playlistId, song_id]);
-        } else {
-            await pool.query('DELETE FROM playlist_songs WHERE playlist_id = $1 AND song_id = $2', [playlistId, song_id]);
-        }
-
-        res.json({ liked });
-    } catch (err) {
-        res.status(500).json({ error: "Error al procesar like" });
-    }
+// 1. CREAR CANCIÓN
+app.post('/canciones', authenticateToken, async (req, res) => {
+    const { titulo, artista, album, duracion, url } = req.body;
+    try {
+        await pool.query(
+            'INSERT INTO canciones (titulo, artista, album, duracion, url) VALUES ($1, $2, $3, $4, $5)',
+            [titulo, artista, album, duracion, url]
+        );
+        res.json({ message: "Canción guardada" });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
+// 2. BORRAR CANCIÓN
+app.delete('/canciones/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM canciones WHERE id = $1', [id]);
+        res.json({ message: "Canción eliminada" });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// 3. EDITAR CANCIÓN (Opcional, pero útil)
+app.put('/canciones/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { titulo, artista, album } = req.body;
+    try {
+        await pool.query('UPDATE canciones SET titulo = $1, artista = $2, album = $3 WHERE id = $4', [titulo, artista, album, id]);
+        res.json({ message: "Canción actualizada" });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==========================================
+// CÓDIGO FALTANTE: BORRAR PLAYLIST
+// ==========================================
+app.delete('/playlists/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.id; // Obtenemos el ID del usuario desde el Token
+
+    try {
+        // 1. Seguridad: Verificamos que la playlist pertenezca a este usuario
+        const check = await pool.query('SELECT * FROM playlists WHERE id = $1 AND user_id = $2', [id, userId]);
+        
+        if (check.rows.length === 0) {
+            return res.status(403).json({ error: "No tienes permiso para borrar esta playlist o no existe" });
+        }
+
+        // 2. Primero borramos las canciones asociadas a esa playlist (Limpieza)
+        await pool.query('DELETE FROM playlist_songs WHERE playlist_id = $1', [id]);
+
+        // 3. Ahora sí borramos la playlist
+        await pool.query('DELETE FROM playlists WHERE id = $1', [id]);
+        
+        res.json({ message: "Playlist eliminada correctamente" });
+    } catch (err) { 
+        console.error(err);
+        res.status(500).json({ error: err.message }); 
+    }
 });
