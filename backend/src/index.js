@@ -7,11 +7,12 @@ const PORT = process.env.PORT || 3001;
 
 // Configuración de conexión optimizada
 // IMPORTANTE: En Docker para Windows, 'host.docker.internal' es la forma de llegar a tu PostgreSQL local.
+const isProduction = !!process.env.DATABASE_URL; // Detecta si estamos en la nube
 const dbConfig = {
     connectionString: process.env.DATABASE_URL || 'postgres://postgres:Dj5624Vc@host.docker.internal:5432/musica',
-    ssl: false
+    // Si estamos en Render (Production), OBLIGAMOS a usar SSL. Si es local, lo apagamos.
+    ssl: isProduction ? { rejectUnauthorized: false } : false
 };
-
 const pool = new Pool(dbConfig);
 
 app.use(cors());
