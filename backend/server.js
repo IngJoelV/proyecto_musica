@@ -9,10 +9,22 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura';
 
+// ==========================================
+// CÓDIGO CORREGIDO (Copiar y Reemplazar)
+// ==========================================
+
+// Detectamos si estamos en producción (Render) revisando si existe la variable DATABASE_URL
+const isProduction = !!process.env.DATABASE_URL; 
+
 const dbConfig = {
+    // Si existe la variable de entorno, usa esa URL. Si no, usa la local.
     connectionString: process.env.DATABASE_URL || 'postgres://postgres:Dj5624Vc@host.docker.internal:5432/musica',
-    ssl: false
+    
+    // CRÍTICO: Render necesita { rejectUnauthorized: false }.
+    // Tu código anterior tenía 'ssl: false', por eso fallaba.
+    ssl: isProduction ? { rejectUnauthorized: false } : false
 };
+
 
 const pool = new Pool(dbConfig);
 
