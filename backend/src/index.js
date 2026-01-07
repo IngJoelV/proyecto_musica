@@ -5,125 +5,75 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ==========================================
-// 1. CONFIGURACIÓN DE BASE DE DATOS (EDITA AQUÍ)
-// ==========================================
-// Estos datos son para tu conexión local. 
-// En producción (Docker/Render), se usará automáticamente DATABASE_URL si existe.
+// Configuración de conexión optimizada
 const dbConfig = {
-    user: 'postgres',        // Ejemplo: 'postgres'
-    host: 'localhost',           // Ejemplo: 'localhost'
-    database: 'musica',     // Ejemplo: 'musica_db'
-    password: 'Dj5624Vc',   // Ejemplo: 'admin123'
-    port: 5432,
+    connectionString: process.env.DATABASE_URL || 'postgres://postgres:Dj5624Vc@host.docker.internal:5432/musica',
+    ssl: false
 };
 
-// Lógica de conexión dinámica (Prioriza la variable de entorno del servidor)
-const pool = new Pool(
-    process.env.DATABASE_URL 
-    ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }
-    : dbConfig
-);
+const pool = new Pool(dbConfig);
 
 app.use(cors());
 app.use(express.json());
 
-// ==========================================
-// 2. RUTAS DE PRUEBA
-// ==========================================
-app.get('/', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT NOW()');
-        res.json({ 
-            mensaje: "Backend en Docker conectado a PostgreSQL",
-            db_time: result.rows[0].now,
-            estado: "Online"
-        });
-    } catch (err) {
-        res.status(500).json({ error: "Error de conexión", details: err.message });
+// Probar conexión al inicio para ver logs en Docker
+pool.connect((err, client, release) => {
+    if (err) {
+        console.error('❌ Error de conexión a la DB musica:', err.message);
+    } else {
+        console.log('✅ Conexión exitosa a la base de datos musica');
+        release();
     }
 });
 
-// ==========================================
-// 3. IMPLEMENTACIÓN DE RUTAS (API)
-// ==========================================
-
-// --- Canciones ---
-app.get('/canciones', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM canciones ORDER BY id DESC');
-        res.json(result.rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/canciones', async (req, res) => {
-    const { titulo, artista, album, duracion, url } = req.body;
-    try {
-        const result = await pool.query(
-            'INSERT INTO canciones (titulo, artista, album, duracion, url) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [titulo, artista, album, duracion, url]
-        );
-        res.status(201).json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.delete('/canciones/:id', async (req, res) => {
-    try {
-        await pool.query('DELETE FROM canciones WHERE id = $1', [req.params.id]);
-        res.json({ mensaje: "Eliminado correctamente" });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// --- Login ---
+// LOGIN: Ajustado a tus columnas 'nombre' y 'clave'
 app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
+    const { username, password } = req.body; // Lo que envía el Frontend
+    
     try {
-        const result = await pool.query('SELECT * FROM usuarios WHERE username = $1 AND password = $2', [username, password]);
+        // Consultamos usando TUS nombres de columna del esquema
+        const result = await pool.query(
+            'SELECT * FROM usuarios WHERE nombre = $1 AND clave = $2', 
+            [username, password]
+        );
+
         if (result.rows.length > 0) {
             const user = result.rows[0];
             res.json({ 
-                token: "session-token-valid", 
-                username: user.username, 
-                role: user.role 
+                token: "token_valido", 
+                username: user.nombre, 
+                role: user.rol // Ajustado si tu columna se llama 'rol'
             });
         } else {
-            res.status(401).json({ error: "Credenciales incorrectas" });
+            res.status(401).json({ error: "Usuario o clave incorrectos" });
         }
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) {
+        console.error('❌ Error en Login:', err.message);
+        res.status(500).json({ error: "Error interno", detalle: err.message });
+    }
 });
 
-// --- Playlists & Likes ---
-app.get('/playlists', async (req, res) => {
+// CANCIONES: Ajustado a tu tabla 'canciones'
+app.get('/canciones', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM playlists');
-        res.json(result.rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        const result = await pool.query('SELECT * FROM canciones');
+        res.json(result.rows || []);
+    } catch (err) {
+        console.error('❌ Error en Canciones:', err.message);
+        res.json([]);
+    }
 });
 
+// LIKES: Ajustado a tu tabla 'likes'
 app.get('/likes', async (req, res) => {
     try {
-        const result = await pool.query('SELECT song_id FROM likes');
-        res.json(result.rows.map(r => r.song_id));
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        const result = await pool.query('SELECT id_cancion FROM likes');
+        res.json(result.rows.map(r => r.id_cancion));
+    } catch (err) {
+        res.json([]);
+    }
 });
 
-app.post('/likes', async (req, res) => {
-    const { song_id } = req.body;
-    try {
-        const exists = await pool.query('SELECT * FROM likes WHERE song_id = $1', [song_id]);
-        if (exists.rows.length > 0) {
-            await pool.query('DELETE FROM likes WHERE song_id = $1', [song_id]);
-            res.json({ liked: false });
-        } else {
-            await pool.query('INSERT INTO likes (song_id) VALUES ($1)', [song_id]);
-            res.json({ liked: true });
-        }
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// ==========================================
-// 4. INICIO DEL SERVIDOR
-// ==========================================
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Servidor iniciado en el puerto ${PORT}`);
+    console.log(`Servidor mapeado a la DB 'musica' en puerto ${PORT}`);
 });
