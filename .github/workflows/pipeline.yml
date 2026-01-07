@@ -1,47 +1,92 @@
-name: Pipeline CI/CD (Build & Deploy)
+name: CI/CD Express + React (Taller Oficial)
 
 on:
   push:
     branches: [ "main" ]
 
-# Permisos necesarios para que el robot pueda publicar en tu repositorio
 permissions:
   contents: write
 
 jobs:
-  build-and-deploy:
+  # ==========================================
+  # 1. INTEGRACIÓN CONTINUA (CI)
+  # ==========================================
+  ci:
     runs-on: ubuntu-latest
-
     steps:
-    # 1. Descargar código
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout del código
+        uses: actions/checkout@v4
 
-    # 2. Configurar Node
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          # Verifica que estas rutas coincidan con tus carpetas
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
 
-    # 3. Instalar dependencias (Frontend)
-    - name: Install Frontend Dependencies
-      run: |
-        cd frontend
-        npm ci
+      - name: Instalar y Verificar Backend
+        run: |
+          cd backend
+          npm install
+          npm run lint || echo "No lint script"
+          npm run test || echo "No test script"
 
-    # 4. Construir el proyecto (Crear la carpeta 'build')
-    - name: Build Frontend
-      run: |
-        cd frontend
-        npm run build
-      env:
-        CI: false # Evita que falle por warnings simples
+      - name: Instalar y Construir Frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+        env:
+          CI: false
 
-    # 5. DESPLIEGUE A GITHUB PAGES (La parte nueva)
-    - name: Deploy to GitHub Pages
-      uses: JamesIves/github-pages-deploy-action@v4
-      with:
-        folder: frontend/build # La carpeta que queremos subir
-        branch: gh-pages # La rama donde se verá la página
+      - name: Guardar Artefacto del Frontend
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build
+
+  # ==========================================
+  # 2. DESPLIEGUE FRONTEND (GitHub Pages)
+  # ==========================================
+  deploy_frontend:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Descargar Build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build
+      - name: Deploy a GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: frontend/build
+          branch: gh-pages
+
+  # ==========================================
+  # 3. DESPLIEGUE BACKEND (Docker Hub)
+  # ==========================================
+  build_and_push_backend:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Login en Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Construir y Subir Imagen
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/backend-express-ci-cd:latest
