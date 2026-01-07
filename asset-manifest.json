@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/proyecto_musica/static/css/main.dff62ea7.css",
-    "main.js": "/proyecto_musica/static/js/main.9243d0b2.js",
+    "main.js": "/proyecto_musica/static/js/main.91222a18.js",
     "index.html": "/proyecto_musica/index.html",
     "main.dff62ea7.css.map": "/proyecto_musica/static/css/main.dff62ea7.css.map",
-    "main.9243d0b2.js.map": "/proyecto_musica/static/js/main.9243d0b2.js.map"
+    "main.91222a18.js.map": "/proyecto_musica/static/js/main.91222a18.js.map"
   },
   "entrypoints": [
     "static/css/main.dff62ea7.css",
-    "static/js/main.9243d0b2.js"
+    "static/js/main.91222a18.js"
   ]
 }
