@@ -222,6 +222,7 @@ function App() {
 
     // --- ACCIÓN LIKE (TOGGLE) ---
 const toggleLike = async (songId) => {
+    alert("¡ESTOY VIVO! ID: " + songId);
         console.log("👆 Click en Like para canción ID:", songId); // 1. Veremos el click
         
         // 2. CAMBIO VISUAL INSTANTÁNEO (Optimistic UI)
