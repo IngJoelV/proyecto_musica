@@ -221,21 +221,44 @@ function App() {
     };
 
     // --- ACCIÓN LIKE (TOGGLE) ---
-    const toggleLike = async (songId) => {
-        // Optimistic UI update (opcional, pero ayuda a que se sienta rápido)
-        if (likedSongsIds.includes(songId)) {
-            setLikedSongsIds(prev => prev.filter(id => id !== songId));
-        } else {
-            setLikedSongsIds(prev => [...prev, songId]);
-        }
-
-        await fetch(`${API_URL}/likes`, {
-            method: 'POST', 
-            headers: getAuthHeaders(), 
-            body: JSON.stringify({ song_id: songId, userId: user.id })
+const toggleLike = async (songId) => {
+        console.log("👆 Click en Like para canción ID:", songId); // 1. Veremos el click
+        
+        // 2. CAMBIO VISUAL INSTANTÁNEO (Optimistic UI)
+        // Si ya lo tengo, lo quito. Si no, lo agrego.
+        setLikedSongsIds(prevIds => {
+            if (prevIds.includes(songId)) {
+                console.log("💔 Quitanto like visualmente...");
+                return prevIds.filter(id => id !== songId);
+            } else {
+                console.log("❤️ Poniendo like visualmente...");
+                return [...prevIds, songId];
+            }
         });
-        // Refrescamos para asegurar sincronización real
-        fetchData(user);
+
+        // 3. LLAMADA AL SERVIDOR (En segundo plano)
+        try {
+            const response = await fetch(`${API_URL}/likes`, {
+                method: 'POST', 
+                headers: getAuthHeaders(), 
+                body: JSON.stringify({ song_id: songId, userId: user.id })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error del servidor: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log("✅ Respuesta del servidor:", data);
+            
+            // Opcional: Refrescar datos reales para asegurar sincronización
+            // fetchData(user); 
+        } catch (error) {
+            console.error("❌ ERROR AL DAR LIKE:", error);
+            alert("No se pudo guardar el like. Revisa tu conexión.");
+            // Si falló, revertimos el cambio visual (opcional, pero recomendado)
+            fetchData(user); 
+        }
     };
 
     useEffect(() => {
