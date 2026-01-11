@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
-const bcrypt = require('bcryptjs'); // <--- Nota el "js" al final
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
@@ -12,8 +12,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'clave_secreta_segura';
 // ==========================================
 // CONFIGURACIÓN DE BASE DE DATOS
 // ==========================================
-const connectionString = process.env.DATABASE_URL || 'postgres://postgres:Dj5624Vc@host.docker.internal:5432/musica';
-const isLocalConnection = connectionString.includes('host.docker.internal');
+// Detecta si estamos en local o en Render para ajustar SSL
+const connectionString = process.env.DATABASE_URL;
+const isLocalConnection = connectionString && connectionString.includes('host.docker.internal');
 
 const pool = new Pool({
     connectionString: connectionString,
@@ -38,7 +39,6 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// Middleware para verificar si es ADMIN
 const checkAdmin = (req, res, next) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ error: "Acceso denegado. Se requieren permisos de Administrador." });
@@ -51,19 +51,20 @@ const checkAdmin = (req, res, next) => {
 // ==========================================
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
-    console.log("📥 Intento de registro recibido:", username); // <--- AGREGA ESTO
+    console.log("📥 Intento de registro recibido:", username);
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
+        // Por defecto todos son 'user'. Tú cambiaste el tuyo a 'admin' por base de datos.
         const result = await pool.query(
             'INSERT INTO usuarios (username, password, role) VALUES ($1, $2, $3) RETURNING id, username, role',
             [username, hashedPassword, 'user']
         );
-        console.log("✅ Usuario registrado con éxito"); // <--- AGREGA ESTO
+        console.log("✅ Usuario registrado con éxito");
         res.status(201).json(result.rows[0]);
     } catch (err) { 
-        console.error("❌ ERROR FATAL EN REGISTRO:", err.message); // <--- ¡ESTO ES LO IMPORTANTE!
-        console.error(err); // <--- Muestra todo el detalle
+        console.error("❌ ERROR FATAL EN REGISTRO:", err.message);
+        console.error(err);
         res.status(500).json({ error: "Error al registrar: " + err.message }); 
     }
 });
@@ -82,7 +83,7 @@ app.post('/login', async (req, res) => {
 });
 
 // ==========================================
-// RUTAS DE CANCIONES (Públicas para ver, Privadas para crear)
+// RUTAS DE CANCIONES
 // ==========================================
 app.get('/canciones', async (req, res) => {
     try {
@@ -91,7 +92,7 @@ app.get('/canciones', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// SOLO ADMIN PUEDE CREAR
+// Crear Canción (SOLO ADMIN)
 app.post('/canciones', authenticateToken, checkAdmin, async (req, res) => {
     const { titulo, artista, album, duracion, url } = req.body;
     try {
@@ -103,7 +104,7 @@ app.post('/canciones', authenticateToken, checkAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// SOLO ADMIN PUEDE BORRAR
+// Borrar Canción (SOLO ADMIN)
 app.delete('/canciones/:id', authenticateToken, checkAdmin, async (req, res) => {
     const { id } = req.params;
     try {
@@ -113,17 +114,14 @@ app.delete('/canciones/:id', authenticateToken, checkAdmin, async (req, res) => 
 });
 
 // ==========================================
-// RUTAS DE PLAYLISTS (Privadas por usuario)
+// RUTAS DE PLAYLISTS
 // ==========================================
 app.get('/playlists', async (req, res) => {
     const { userId } = req.query;
     if (!userId) return res.json([]);
     try {
-        // Obtenemos playlists
         const playlists = await pool.query('SELECT * FROM playlists WHERE user_id = $1 ORDER BY id DESC', [userId]);
         const result = [];
-        
-        // Obtenemos canciones de cada playlist
         for (let p of playlists.rows) {
             const songs = await pool.query(
                 `SELECT c.* FROM canciones c JOIN playlist_songs ps ON c.id = ps.song_id WHERE ps.playlist_id = $1`, 
@@ -168,38 +166,35 @@ app.post('/playlists/:id/songs', authenticateToken, async (req, res) => {
 });
 
 // ==========================================
-// RUTAS DE LIKES
+// RUTAS DE LIKES (MEJORADAS)
 // ==========================================
 app.get('/likes', async (req, res) => {
     const { userId } = req.query;
+    if(!userId) return res.json([]);
     try {
         const result = await pool.query('SELECT song_id FROM likes WHERE user_id = $1', [userId]);
-        // TRUCO DE MAGIA: Devolvemos solo un array de numeros [1, 5, 8] en vez de objetos
+        // DEVUELVE ARRAY SIMPLE: [1, 5, 8]
         const ids = result.rows.map(row => row.song_id); 
         res.json(ids);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch(e) { res.json([]); }
 });
 
-app.post('/likes', async (req, res) => {
-    const { userId, song_id } = req.body;
+app.post('/likes', authenticateToken, async (req, res) => {
+    const { song_id, userId } = req.body; 
     try {
-        // Primero revisamos si ya existe
+        // Verificar si ya existe el like
         const check = await pool.query('SELECT * FROM likes WHERE user_id = $1 AND song_id = $2', [userId, song_id]);
         
-        if (check.rows.length > 0) {
-            // SI YA EXISTE -> LO BORRAMOS (Dislike)
+        if (check.rowCount > 0) {
+            // SI EXISTE -> BORRAR (DISLIKE)
             await pool.query('DELETE FROM likes WHERE user_id = $1 AND song_id = $2', [userId, song_id]);
-            res.json({ message: "Like removido", action: "removed" });
+            res.json({ success: true, action: 'removed' });
         } else {
-            // SI NO EXISTE -> LO AGREGAMOS (Like)
+            // SI NO EXISTE -> AGREGAR (LIKE)
             await pool.query('INSERT INTO likes (user_id, song_id) VALUES ($1, $2)', [userId, song_id]);
-            res.json({ message: "Like agregado", action: "added" });
+            res.json({ success: true, action: 'added' });
         }
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server en ${PORT}`));
