@@ -51,14 +51,21 @@ const checkAdmin = (req, res, next) => {
 // ==========================================
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
+    console.log("📥 Intento de registro recibido:", username); // <--- AGREGA ESTO
+
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         const result = await pool.query(
             'INSERT INTO usuarios (username, password, role) VALUES ($1, $2, $3) RETURNING id, username, role',
             [username, hashedPassword, 'user']
         );
+        console.log("✅ Usuario registrado con éxito"); // <--- AGREGA ESTO
         res.status(201).json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: "Error al registrar" }); }
+    } catch (err) { 
+        console.error("❌ ERROR FATAL EN REGISTRO:", err.message); // <--- ¡ESTO ES LO IMPORTANTE!
+        console.error(err); // <--- Muestra todo el detalle
+        res.status(500).json({ error: "Error al registrar: " + err.message }); 
+    }
 });
 
 app.post('/login', async (req, res) => {
