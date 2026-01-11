@@ -4,7 +4,8 @@ import React, { useEffect, useState, useRef } from 'react';
 // CONFIGURACIÓN DE LA API
 // ==========================================
 // Apuntamos a tu servidor en Render
-const API_URL = 'https://musica-o2xj.onrender.com';
+// Opción A: Usar la variable de entorno (Recomendado)
+const API_URL = process.env.REACT_APP_API_URL || 'https://musica-o2xj.onrender.com';
 
 // ==========================================
 // 1. COMPONENTE DE LOGIN
