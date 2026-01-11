@@ -172,25 +172,34 @@ app.post('/playlists/:id/songs', authenticateToken, async (req, res) => {
 // ==========================================
 app.get('/likes', async (req, res) => {
     const { userId } = req.query;
-    if(!userId) return res.json([]);
     try {
-        const r = await pool.query('SELECT song_id FROM likes WHERE user_id = $1', [userId]);
-        res.json(r.rows.map(x => x.song_id));
-    } catch(e) { res.json([]); }
+        const result = await pool.query('SELECT song_id FROM likes WHERE user_id = $1', [userId]);
+        // TRUCO DE MAGIA: Devolvemos solo un array de numeros [1, 5, 8] en vez de objetos
+        const ids = result.rows.map(row => row.song_id); 
+        res.json(ids);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/likes', authenticateToken, async (req, res) => {
-    const { song_id } = req.body;
-    const userId = req.user.id;
+app.post('/likes', async (req, res) => {
+    const { userId, song_id } = req.body;
     try {
+        // Primero revisamos si ya existe
         const check = await pool.query('SELECT * FROM likes WHERE user_id = $1 AND song_id = $2', [userId, song_id]);
-        if(check.rowCount > 0) {
+        
+        if (check.rows.length > 0) {
+            // SI YA EXISTE -> LO BORRAMOS (Dislike)
             await pool.query('DELETE FROM likes WHERE user_id = $1 AND song_id = $2', [userId, song_id]);
+            res.json({ message: "Like removido", action: "removed" });
         } else {
+            // SI NO EXISTE -> LO AGREGAMOS (Like)
             await pool.query('INSERT INTO likes (user_id, song_id) VALUES ($1, $2)', [userId, song_id]);
+            res.json({ message: "Like agregado", action: "added" });
         }
-        res.json({ success: true });
-    } catch(e) { res.status(500).json({ error: e.message }); }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server en ${PORT}`));

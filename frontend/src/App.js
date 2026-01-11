@@ -3,8 +3,6 @@ import React, { useEffect, useState, useRef } from 'react';
 // ==========================================
 // CONFIGURACIÓN DE LA API
 // ==========================================
-// Apuntamos a tu servidor en Render
-// Opción A: Usar la variable de entorno (Recomendado)
 const API_URL = process.env.REACT_APP_API_URL || 'https://musica-o2xj.onrender.com';
 
 // ==========================================
@@ -61,7 +59,11 @@ function App() {
     const [user, setUser] = useState(null);
     const [canciones, setCanciones] = useState([]);
     const [userPlaylists, setUserPlaylists] = useState([]);
-    const [likedSongsIds, setLikedSongsIds] = useState([]);
+    const [likedSongsIds, setLikedSongsIds] = useState([]); // Ahora guardará [1, 5, 8]
+
+    // --- ESTADOS DE VISTA (NUEVO) ---
+    const [viewMode, setViewMode] = useState('home'); // 'home' | 'likes'
+    const [selectedPlaylistName, setSelectedPlaylistName] = useState('Todas las Canciones');
 
     // --- ESTADOS DE FORMULARIO (ADMIN + ITUNES) ---
     const [showForm, setShowForm] = useState(false);
@@ -83,26 +85,26 @@ function App() {
         }
     }, []);
 
-    // Helper para headers
     const getAuthHeaders = () => user ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user.token}` } : {};
 
     // --- CARGA DE DATOS ---
     const fetchData = (currentUser) => {
         if (!currentUser) return;
         
-        // 1. Canciones (Públicas)
+        // 1. Canciones
         fetch(`${API_URL}/canciones`)
             .then(r => r.json())
             .then(d => setCanciones(Array.isArray(d) ? d : []))
             .catch(e => console.error("Error canciones:", e));
 
-        // 2. Playlists y Likes (Privados)
         if (currentUser.id) {
+            // 2. Playlists
             fetch(`${API_URL}/playlists?userId=${currentUser.id}`, { headers: { 'Authorization': `Bearer ${currentUser.token}` } })
                 .then(r => r.json())
                 .then(d => setUserPlaylists(Array.isArray(d) ? d : []))
                 .catch(e => console.error("Error playlists:", e));
 
+            // 3. Likes (Ahora devuelve array simple [1, 2, 3])
             fetch(`${API_URL}/likes?userId=${currentUser.id}`, { headers: { 'Authorization': `Bearer ${currentUser.token}` } })
                 .then(r => r.json())
                 .then(d => setLikedSongsIds(Array.isArray(d) ? d : []))
@@ -121,12 +123,11 @@ function App() {
             const result = await res.json();
             
             if (res.ok) {
-                // Si el login devuelve el ID directamente, úsalo. Si no, intenta decodificar.
                 let userId = result.id;
+                // Intentar decodificar ID si viene en token
                 if (!userId && result.token) {
                     try { userId = JSON.parse(atob(result.token.split('.')[1])).id; } catch(e){}
                 }
-                
                 const finalUser = { ...result, id: userId };
                 setUser(finalUser);
                 localStorage.setItem('music_user', JSON.stringify(finalUser));
@@ -141,10 +142,11 @@ function App() {
         setUser(null);
         setCanciones([]);
         setUserPlaylists([]);
+        setLikedSongsIds([]);
         localStorage.removeItem('music_user');
     };
 
-    // --- LÓGICA ITUNES (NUEVO) ---
+    // --- LÓGICA ITUNES ---
     const searchItunes = async (e) => {
         e.preventDefault();
         if (!itunesQuery) return;
@@ -160,14 +162,14 @@ function App() {
             titulo: track.trackName,
             artista: track.artistName,
             album: track.collectionName,
-            duracion: '0:30', // iTunes preview suele ser 30s
+            duracion: '0:30',
             url: track.previewUrl
         });
-        setItunesResults([]); // Limpiar resultados
+        setItunesResults([]);
         setItunesQuery('');
     };
 
-    // --- ACCIONES ADMIN (SUBIR / BORRAR) ---
+    // --- ACCIONES ADMIN ---
     const handleUpload = async (e) => {
         e.preventDefault();
         try {
@@ -177,7 +179,7 @@ function App() {
             setForm({ titulo: '', artista: '', album: '', duracion: '', url: '' });
             setShowForm(false);
             fetchData(user);
-            alert("¡Canción subida con éxito!");
+            alert("¡Canción subida!");
         } catch (e) { console.error(e); }
     };
 
@@ -209,9 +211,7 @@ function App() {
 
     const addToPlaylist = async (songId) => {
         if (userPlaylists.length === 0) return alert("Primero crea una playlist en el menú lateral.");
-        // Por defecto agregamos a la primera playlist (se puede mejorar con un modal)
         const targetPlaylist = userPlaylists[0];
-        
         if(window.confirm(`¿Agregar a "${targetPlaylist.name}"?`)) {
             await fetch(`${API_URL}/playlists/${targetPlaylist.id}/songs`, {
                 method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ song_id: songId })
@@ -220,14 +220,24 @@ function App() {
         }
     };
 
+    // --- ACCIÓN LIKE (TOGGLE) ---
     const toggleLike = async (songId) => {
+        // Optimistic UI update (opcional, pero ayuda a que se sienta rápido)
+        if (likedSongsIds.includes(songId)) {
+            setLikedSongsIds(prev => prev.filter(id => id !== songId));
+        } else {
+            setLikedSongsIds(prev => [...prev, songId]);
+        }
+
         await fetch(`${API_URL}/likes`, {
-            method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ song_id: songId, userId: user.id })
+            method: 'POST', 
+            headers: getAuthHeaders(), 
+            body: JSON.stringify({ song_id: songId, userId: user.id })
         });
+        // Refrescamos para asegurar sincronización real
         fetchData(user);
     };
 
-    // --- EFECTO REPRODUCTOR ---
     useEffect(() => {
         if (currentSong && audioRef.current) {
             audioRef.current.src = currentSong.url;
@@ -235,11 +245,16 @@ function App() {
         }
     }, [currentSong]);
 
-
     // ==========================================
     // RENDERIZADO DE LA UI
     // ==========================================
     if (!user) return <LoginAuth onAuthSubmit={handleAuth} />;
+
+    // CALCULAR QUÉ CANCIONES MOSTRAR SEGÚN LA VISTA
+    let songsToShow = canciones;
+    if (viewMode === 'likes') {
+        songsToShow = canciones.filter(c => likedSongsIds.includes(c.id));
+    }
 
     return (
         <div className="d-flex flex-column vh-100 bg-black text-white font-monospace">
@@ -262,10 +277,31 @@ function App() {
 
             <div className="d-flex flex-grow-1 overflow-hidden">
                 
-                {/* SIDEBAR (PLAYLISTS) */}
+                {/* SIDEBAR */}
                 <div className="d-none d-md-flex flex-column p-3 bg-dark border-end border-secondary" style={{ width: '250px' }}>
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                        <span className="text-white-50 fw-bold small">TU BIBLIOTECA</span>
+                    
+                    {/* MENÚ PRINCIPAL */}
+                    <div className="mb-4">
+                        <div className={`p-2 rounded d-flex align-items-center mb-2 ${viewMode === 'home' ? 'bg-secondary text-white' : 'text-white-50 hover-bg-gray'}`} 
+                             style={{cursor:'pointer'}} 
+                             onClick={() => { setViewMode('home'); setSelectedPlaylistName('Todas las Canciones'); }}>
+                            <i className="bi bi-house-door-fill me-3"></i> Inicio
+                        </div>
+                        
+                        {/* BOTÓN MIS ME GUSTA */}
+                        <div className={`p-2 rounded d-flex align-items-center ${viewMode === 'likes' ? 'bg-secondary text-white' : 'text-white-50 hover-bg-gray'}`} 
+                             style={{cursor:'pointer'}} 
+                             onClick={() => { setViewMode('likes'); setSelectedPlaylistName('Mis Me Gusta'); }}>
+                            <div className="d-flex justify-content-center align-items-center rounded me-3" 
+                                 style={{width:'24px', height:'24px', background: 'linear-gradient(135deg, #450af5, #c4efd9)'}}>
+                                <i className="bi bi-heart-fill text-white" style={{fontSize:'12px'}}></i>
+                            </div>
+                            Mis Me Gusta
+                        </div>
+                    </div>
+
+                    <div className="d-flex justify-content-between align-items-center mb-3 border-top border-secondary pt-3">
+                        <span className="text-white-50 fw-bold small">TUS PLAYLISTS</span>
                         <button className="btn btn-link text-white p-0" onClick={createPlaylist}><i className="bi bi-plus-lg"></i></button>
                     </div>
                     
@@ -279,27 +315,21 @@ function App() {
                                 <i className="bi bi-x text-danger opacity-0 delete-btn" style={{cursor:'pointer'}} onClick={() => deletePlaylist(p.id)}></i>
                             </div>
                         ))}
-                        {userPlaylists.length === 0 && <div className="small text-muted fst-italic">Sin playlists</div>}
                     </div>
                 </div>
 
-                {/* MAIN CONTENT */}
+                {/* CONTENIDO PRINCIPAL */}
                 <div className="flex-grow-1 p-4 overflow-auto custom-scrollbar">
                     
-                    {/* PANEL DE ADMINISTRADOR (ITUNES + FORMULARIO) */}
+                    {/* PANEL DE ADMIN */}
                     {showForm && user.role === 'admin' && (
                         <div className="card bg-secondary text-white mb-4 p-3 shadow fade-in">
                             <h5 className="mb-3"><i className="bi bi-magic me-2"></i>Subida Inteligente</h5>
-                            
-                            {/* Buscador iTunes */}
                             <form onSubmit={searchItunes} className="d-flex gap-2 mb-3">
                                 <input className="form-control form-control-sm bg-dark text-white border-0" 
-                                    placeholder="Buscar canción en iTunes (ej: Bad Bunny)" 
-                                    value={itunesQuery} onChange={e => setItunesQuery(e.target.value)} />
+                                    placeholder="Buscar en iTunes..." value={itunesQuery} onChange={e => setItunesQuery(e.target.value)} />
                                 <button type="submit" className="btn btn-primary btn-sm">Buscar</button>
                             </form>
-
-                            {/* Resultados iTunes */}
                             {itunesResults.length > 0 && (
                                 <div className="list-group mb-3">
                                     {itunesResults.map((track, i) => (
@@ -307,64 +337,76 @@ function App() {
                                                 onClick={() => selectItunesSong(track)}>
                                             <div className="d-flex align-items-center">
                                                 <img src={track.artworkUrl60} alt="cover" className="rounded me-3" style={{width:'40px'}}/>
-                                                <div>
-                                                    <div className="fw-bold small">{track.trackName}</div>
-                                                    <div className="small text-white-50">{track.artistName}</div>
-                                                </div>
+                                                <div><div className="fw-bold small">{track.trackName}</div><div className="small text-white-50">{track.artistName}</div></div>
                                             </div>
                                             <span className="badge bg-success">Usar</span>
                                         </button>
                                     ))}
                                 </div>
                             )}
-
-                            {/* Formulario de Edición */}
                             <form onSubmit={handleUpload} className="row g-2 border-top border-dark pt-3">
                                 <div className="col-md-6"><input className="form-control form-control-sm bg-dark text-white border-0" placeholder="Título" value={form.titulo} onChange={e=>setForm({...form, titulo:e.target.value})} required/></div>
                                 <div className="col-md-6"><input className="form-control form-control-sm bg-dark text-white border-0" placeholder="Artista" value={form.artista} onChange={e=>setForm({...form, artista:e.target.value})} required/></div>
                                 <div className="col-md-6"><input className="form-control form-control-sm bg-dark text-white border-0" placeholder="Álbum" value={form.album} onChange={e=>setForm({...form, album:e.target.value})} required/></div>
                                 <div className="col-md-6"><input className="form-control form-control-sm bg-dark text-white border-0" placeholder="URL Audio" value={form.url} onChange={e=>setForm({...form, url:e.target.value})} required/></div>
-                                <div className="col-12"><button className="btn btn-success btn-sm w-100 fw-bold">Guardar Canción</button></div>
+                                <div className="col-12"><button className="btn btn-success btn-sm w-100 fw-bold">Guardar</button></div>
                             </form>
                         </div>
                     )}
 
+                    {/* HEADER DINÁMICO (TÍTULO) */}
+                    <div className="d-flex align-items-end mb-4">
+                        {viewMode === 'likes' && (
+                            <div className="me-3 shadow-lg d-flex align-items-center justify-content-center rounded" 
+                                 style={{width:'150px', height:'150px', background: 'linear-gradient(135deg, #450af5, #8e8cd8)'}}>
+                                <i className="bi bi-heart-fill text-white" style={{fontSize:'4rem'}}></i>
+                            </div>
+                        )}
+                        <div>
+                            <div className="small text-uppercase fw-bold text-white-50">{viewMode === 'likes' ? 'Playlist' : 'Vista'}</div>
+                            <h1 className="fw-bold display-4 m-0">{selectedPlaylistName}</h1>
+                            {viewMode === 'likes' && <div className="text-white-50 mt-2 small">{songsToShow.length} canciones que te encantan</div>}
+                        </div>
+                    </div>
+
                     {/* LISTA DE CANCIONES */}
-                    <h4 className="fw-bold mb-3">Canciones Disponibles</h4>
-                    <div className="list-group">
-                        {canciones.map((c, i) => (
-                            <div key={c.id} className="list-group-item bg-dark text-white border-secondary d-flex justify-content-between align-items-center mb-2 rounded hover-bg-gray">
-                                <div className="d-flex align-items-center flex-grow-1" style={{cursor:'pointer'}} onClick={() => { setCurrentSong(c); }}>
-                                    <span className="text-muted me-3" style={{width:'20px'}}>{i + 1}</span>
+                    <div className="list-group list-group-flush">
+                        {songsToShow.map((c, i) => (
+                            <div key={c.id} className="list-group-item bg-black text-white border-0 d-flex justify-content-between align-items-center py-2 hover-bg-gray rounded">
+                                <div className="d-flex align-items-center flex-grow-1" style={{cursor:'pointer'}} onClick={() => setCurrentSong(c)}>
+                                    <span className="text-muted me-3 text-center" style={{width:'20px'}}>{i + 1}</span>
+                                    <img src={c.url && c.url.includes('apple') ? 'https://upload.wikimedia.org/wikipedia/commons/5/5f/Apple_Music_icon.svg' : 'https://cdn-icons-png.flaticon.com/512/401/401146.png'} 
+                                         alt="cover" className="me-3 rounded" style={{width:'40px', height:'40px', objectFit:'cover'}}/>
                                     <div>
-                                        <div className="fw-bold text-truncate" style={{maxWidth:'250px'}}>{c.titulo}</div>
+                                        <div className={`fw-bold ${currentSong?.id === c.id ? 'text-success' : 'text-white'}`}>{c.titulo}</div>
                                         <div className="small text-white-50">{c.artista}</div>
                                     </div>
                                 </div>
-                                
-                                <div className="d-flex align-items-center gap-2">
-                                    <button className="btn btn-icon text-white-50 hover-text-success" onClick={() => toggleLike(c.id)}>
-                                        <i className={`bi ${likedSongsIds.includes(c.id) ? 'bi-heart-fill text-success' : 'bi-heart'}`}></i>
+                                <div className="d-flex align-items-center gap-3">
+                                    <button className="btn btn-icon border-0 p-0" onClick={() => toggleLike(c.id)}>
+                                        <i className={`bi ${likedSongsIds.includes(c.id) ? 'bi-heart-fill text-success' : 'bi-heart text-white-50'}`}></i>
                                     </button>
-                                    <button className="btn btn-icon text-white-50 hover-text-white" onClick={() => addToPlaylist(c.id)}>
+                                    <button className="btn btn-icon border-0 p-0 text-white-50 hover-text-white" onClick={() => addToPlaylist(c.id)}>
                                         <i className="bi bi-plus-circle"></i>
                                     </button>
-                                    
-                                    {/* SOLO ADMIN VE BOTÓN DE BORRAR */}
                                     {user.role === 'admin' && (
-                                        <button className="btn btn-icon text-white-50 hover-text-danger ms-2" onClick={() => deleteSong(c.id)}>
+                                        <button className="btn btn-icon border-0 p-0 text-white-50 hover-text-danger" onClick={() => deleteSong(c.id)}>
                                             <i className="bi bi-trash"></i>
                                         </button>
                                     )}
                                 </div>
                             </div>
                         ))}
-                        {canciones.length === 0 && <div className="text-center p-5 text-muted">No hay canciones aún.</div>}
+                        {songsToShow.length === 0 && (
+                            <div className="text-center p-5 text-white-50">
+                                {viewMode === 'likes' ? 'Aún no has dado like a ninguna canción 💔' : 'No hay canciones disponibles.'}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* BARRA DE REPRODUCCIÓN */}
+            {/* REPRODUCTOR */}
             {currentSong && (
                 <div className="bg-dark border-top border-secondary p-2 d-flex align-items-center justify-content-between shadow-lg" style={{ height: '85px', zIndex: 100 }}>
                     <div className="d-flex align-items-center w-25 ms-3">
