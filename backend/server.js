@@ -165,6 +165,23 @@ app.post('/playlists/:id/songs', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ELIMINAR CANCIÓN DE UNA PLAYLIST
+app.delete('/playlists/:playlistId/songs/:songId', (req, res) => {
+    const { playlistId, songId } = req.params;
+    
+    // Buscamos la playlist
+    const playlistIndex = playlists.findIndex(p => p.id == playlistId);
+    
+    if (playlistIndex === -1) {
+        return res.status(404).json({ error: 'Playlist no encontrada' });
+    }
+
+    // Filtramos las canciones para quitar la que tiene ese ID
+    // (Dejamos todas las que NO sean esa canción)
+    playlists[playlistIndex].songs = playlists[playlistIndex].songs.filter(song => song.id != songId);
+
+    res.json({ success: true, playlist: playlists[playlistIndex] });
+});
 // ==========================================
 // RUTAS DE LIKES (MEJORADAS)
 // ==========================================

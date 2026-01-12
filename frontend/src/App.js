@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-
+import './App.css';
 // ==========================================
 // CONFIGURACIÓN DE LA API
 // ==========================================
@@ -208,7 +208,31 @@ const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
             fetchData(user);
         }
     };
+// FUNCIÓN PARA QUITAR CANCIÓN DE PLAYLIST
+    const removeSongFromPlaylist = async (songId) => {
+        if (!selectedPlaylistId) return;
 
+        // 1. UI OPTIMISTA: Lo quitamos visualmente primero
+        const updatedPlaylists = userPlaylists.map(p => {
+            if (p.id === selectedPlaylistId) {
+                // Creamos una copia de la playlist con la canción filtrada
+                return { ...p, songs: p.songs.filter(s => s.id !== songId) };
+            }
+            return p;
+        });
+        setUserPlaylists(updatedPlaylists);
+
+        // 2. AVISAR AL SERVIDOR
+        try {
+            await fetch(`${API_URL}/playlists/${selectedPlaylistId}/songs/${songId}`, {
+                method: 'DELETE',
+            });
+        } catch (error) {
+            console.error("Error al eliminar canción:", error);
+            // Si falla, idealmente recargaríamos los datos
+            fetchData(user);
+        }
+    };
     const addToPlaylist = async (songId) => {
         if (userPlaylists.length === 0) return alert("Primero crea una playlist en el menú lateral.");
         const targetPlaylist = userPlaylists[0];
@@ -442,19 +466,31 @@ const toggleLike = async (songId) => {
                                         <div className="small text-white-50">{c.artista}</div>
                                     </div>
                                 </div>
-                                <div className="d-flex align-items-center gap-3">
-                                    <button className="btn btn-icon border-0 p-0" onClick={() => toggleLike(c.id)}>
-                                        <i className={`bi ${likedSongsIds.includes(c.id) ? 'bi-heart-fill text-success' : 'bi-heart text-white-50'}`}></i>
-                                    </button>
-                                    <button className="btn btn-icon border-0 p-0 text-white-50 hover-text-white" onClick={() => addToPlaylist(c.id)}>
-                                        <i className="bi bi-plus-circle"></i>
-                                    </button>
-                                    {user.role === 'admin' && (
-                                        <button className="btn btn-icon border-0 p-0 text-white-50 hover-text-danger" onClick={() => deleteSong(c.id)}>
-                                            <i className="bi bi-trash"></i>
-                                        </button>
-                                    )}
-                                </div>
+                              <div className="d-flex align-items-center gap-3">
+    {/* 1. Botón ME GUSTA */}
+    <button className="btn btn-icon border-0 p-0" onClick={() => toggleLike(c.id)}>
+        <i className={`bi ${likedSongsIds.includes(c.id) ? 'bi-heart-fill text-success' : 'bi-heart text-white-50'}`}></i>
+    </button>
+
+    {/* 2. NUEVO: Botón QUITAR DE PLAYLIST (Solo aparece en modo playlist) */}
+    {viewMode === 'playlist' && (
+        <button className="btn btn-icon border-0 p-0" title="Quitar" onClick={(e) => { e.stopPropagation(); removeSongFromPlaylist(c.id); }}>
+            <i className="bi bi-trash3 text-secondary hover-text-danger"></i>
+        </button>
+    )}
+
+    {/* 3. Botón AGREGAR A PLAYLIST (Opcional: puedes ocultarlo si ya estás en una playlist, o dejarlo) */}
+    <button className="btn btn-icon border-0 p-0 text-white-50 hover-text-white" onClick={() => addToPlaylist(c.id)}>
+        <i className="bi bi-plus-circle"></i>
+    </button>
+
+    {/* 4. Botón ADMIN (Borrar del sistema) */}
+    {user.role === 'admin' && (
+        <button className="btn btn-icon border-0 p-0 text-white-50 hover-text-danger" onClick={() => deleteSong(c.id)}>
+            <i className="bi bi-trash"></i>
+        </button>
+    )}
+</div>
                             </div>
                         ))}
                         {songsToShow.length === 0 && (
