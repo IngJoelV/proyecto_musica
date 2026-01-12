@@ -64,7 +64,7 @@ function App() {
     // --- ESTADOS DE VISTA (NUEVO) ---
     const [viewMode, setViewMode] = useState('home'); // 'home' | 'likes'
     const [selectedPlaylistName, setSelectedPlaylistName] = useState('Todas las Canciones');
-
+const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
     // --- ESTADOS DE FORMULARIO (ADMIN + ITUNES) ---
     const [showForm, setShowForm] = useState(false);
     const [itunesQuery, setItunesQuery] = useState('');
@@ -274,12 +274,18 @@ const toggleLike = async (songId) => {
     // ==========================================
     if (!user) return <LoginAuth onAuthSubmit={handleAuth} />;
 
-    // CALCULAR QUÉ CANCIONES MOSTRAR SEGÚN LA VISTA
+// CALCULAR QUÉ CANCIONES MOSTRAR SEGÚN LA VISTA
     let songsToShow = canciones;
+    
     if (viewMode === 'likes') {
         songsToShow = canciones.filter(c => likedSongsIds.includes(c.id));
+    } 
+    // 👇 AGREGA ESTO PARA LAS PLAYLISTS 👇
+    else if (viewMode === 'playlist') {
+        const playlist = userPlaylists.find(p => p.id === selectedPlaylistId);
+        // Si la playlist existe y tiene canciones, las mostramos. Si no, array vacío.
+        songsToShow = playlist && playlist.songs ? playlist.songs : [];
     }
-
     return (
         <div className="d-flex flex-column vh-100 bg-black text-white font-monospace">
             
@@ -329,14 +335,32 @@ const toggleLike = async (songId) => {
                         <button className="btn btn-link text-white p-0" onClick={createPlaylist}><i className="bi bi-plus-lg"></i></button>
                     </div>
                     
-                    <div className="overflow-auto flex-grow-1 custom-scrollbar">
+  <div className="overflow-auto flex-grow-1 custom-scrollbar">
                         {userPlaylists.map(p => (
-                            <div key={p.id} className="p-2 mb-1 rounded hover-bg-gray d-flex justify-content-between align-items-center group-hover-visible">
+                            <div key={p.id} 
+                                 className={`p-2 mb-1 rounded d-flex justify-content-between align-items-center group-hover-visible ${selectedPlaylistId === p.id && viewMode === 'playlist' ? 'bg-secondary text-white' : 'hover-bg-gray'}`}
+                                 style={{cursor:'pointer'}}
+                                 // 👇 AL HACER CLICK, CAMBIAMOS EL MODO Y EL ID
+                                 onClick={() => { 
+                                     setViewMode('playlist'); 
+                                     setSelectedPlaylistId(p.id); 
+                                     setSelectedPlaylistName(p.name); 
+                                 }}>
+                                
                                 <div className="text-truncate" style={{maxWidth:'180px'}}>
                                     <div>{p.name}</div>
-                                    <div className="small text-muted" style={{fontSize:'0.75rem'}}>{p.songs ? p.songs.length : 0} canciones</div>
+                                    <div className="small text-muted" style={{fontSize:'0.75rem'}}>
+                                        {p.songs ? p.songs.length : 0} canciones
+                                    </div>
                                 </div>
-                                <i className="bi bi-x text-danger opacity-0 delete-btn" style={{cursor:'pointer'}} onClick={() => deletePlaylist(p.id)}></i>
+
+                                <i className="bi bi-x text-danger opacity-0 delete-btn" 
+                                   style={{cursor:'pointer'}} 
+                                   onClick={(e) => { 
+                                       e.stopPropagation(); // 👈 ESTO EVITA QUE SE ABRA LA PLAYLIST AL BORRAR
+                                       deletePlaylist(p.id); 
+                                   }}>
+                                </i>
                             </div>
                         ))}
                     </div>
@@ -379,15 +403,27 @@ const toggleLike = async (songId) => {
                     )}
 
                     {/* HEADER DINÁMICO (TÍTULO) */}
+{/* HEADER DINÁMICO (TÍTULO) */}
                     <div className="d-flex align-items-end mb-4">
+                        {/* ICONO PARA LIKES */}
                         {viewMode === 'likes' && (
                             <div className="me-3 shadow-lg d-flex align-items-center justify-content-center rounded" 
                                  style={{width:'150px', height:'150px', background: 'linear-gradient(135deg, #450af5, #8e8cd8)'}}>
                                 <i className="bi bi-heart-fill text-white" style={{fontSize:'4rem'}}></i>
                             </div>
                         )}
+                        {/* 👇 NUEVO ICONO PARA PLAYLISTS PERSONALIZADAS 👇 */}
+                        {viewMode === 'playlist' && (
+                            <div className="me-3 shadow-lg d-flex align-items-center justify-content-center rounded bg-dark border border-secondary" 
+                                 style={{width:'150px', height:'150px'}}>
+                                <i className="bi bi-music-note-list text-white" style={{fontSize:'4rem'}}></i>
+                            </div>
+                        )}
+
                         <div>
-                            <div className="small text-uppercase fw-bold text-white-50">{viewMode === 'likes' ? 'Playlist' : 'Vista'}</div>
+                            <div className="small text-uppercase fw-bold text-white-50">
+                                {viewMode === 'likes' ? 'Playlist' : viewMode === 'playlist' ? 'Playlist Privada' : 'Vista'}
+                            </div>
                             <h1 className="fw-bold display-4 m-0">{selectedPlaylistName}</h1>
                             {viewMode === 'likes' && <div className="text-white-50 mt-2 small">{songsToShow.length} canciones que te encantan</div>}
                         </div>
