@@ -65,6 +65,9 @@ function App() {
     const [viewMode, setViewMode] = useState('home'); // 'home' | 'likes'
     const [selectedPlaylistName, setSelectedPlaylistName] = useState('Todas las Canciones');
 const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
+// 👇 AGREGA ESTOS DOS NUEVOS 👇
+    const [showPlaylistModal, setShowPlaylistModal] = useState(false); // ¿Se ve la ventana?
+    const [songToAddToPlaylist, setSongToAddToPlaylist] = useState(null); // ¿Qué canción estamos moviendo?
     // --- ESTADOS DE FORMULARIO (ADMIN + ITUNES) ---
     const [showForm, setShowForm] = useState(false);
     const [itunesQuery, setItunesQuery] = useState('');
@@ -233,14 +236,45 @@ const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
             fetchData(user);
         }
     };
-    const addToPlaylist = async (songId) => {
-        if (userPlaylists.length === 0) return alert("Primero crea una playlist en el menú lateral.");
-        const targetPlaylist = userPlaylists[0];
-        if(window.confirm(`¿Agregar a "${targetPlaylist.name}"?`)) {
-            await fetch(`${API_URL}/playlists/${targetPlaylist.id}/songs`, {
-                method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ song_id: songId })
+// 1. ABRIR EL SELECTOR
+    const openPlaylistModal = (songId) => {
+        setSongToAddToPlaylist(songId);
+        setShowPlaylistModal(true);
+    };
+
+    // 2. GUARDAR EN LA PLAYLIST ELEGIDA (O CREAR UNA NUEVA)
+    const confirmAddToPlaylist = async (playlistId) => {
+        let finalPlaylistId = playlistId;
+
+        // Si eligió "CREAR NUEVA" (pasamos 'NEW' como ID)
+        if (playlistId === 'NEW') {
+            const name = prompt("Nombre de la nueva playlist:");
+            if (!name) return; // Canceló
+            
+            // 1. Crear la playlist
+            try {
+                const res = await fetch(`${API_URL}/playlists`, {
+                    method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ name, userId: user.id })
+                });
+                const newPlaylist = await res.json();
+                finalPlaylistId = newPlaylist.id;
+            } catch(e) { console.error(e); return alert("Error al crear playlist"); }
+        }
+
+        // 2. Agregar la canción a la playlist (existente o nueva)
+        try {
+            await fetch(`${API_URL}/playlists/${finalPlaylistId}/songs`, {
+                method: 'POST', 
+                headers: getAuthHeaders(), 
+                body: JSON.stringify({ song_id: songToAddToPlaylist })
             });
-            fetchData(user);
+            
+            alert("¡Canción agregada!");
+            setShowPlaylistModal(false); // Cerrar modal
+            setSongToAddToPlaylist(null); // Limpiar selección
+            fetchData(user); // Recargar datos
+        } catch (error) {
+            console.error(error);
         }
     };
 
@@ -480,9 +514,10 @@ const toggleLike = async (songId) => {
     )}
 
     {/* 3. Botón AGREGAR A PLAYLIST (Opcional: puedes ocultarlo si ya estás en una playlist, o dejarlo) */}
-    <button className="btn btn-icon border-0 p-0 text-white-50 hover-text-white" onClick={() => addToPlaylist(c.id)}>
-        <i className="bi bi-plus-circle"></i>
-    </button>
+ <button className="btn btn-icon border-0 p-0 text-white-50 hover-text-white" 
+        onClick={() => openPlaylistModal(c.id)}> {/* 👈 CAMBIO AQUÍ */}
+    <i className="bi bi-plus-circle"></i>
+</button>
 
     {/* 4. Botón ADMIN (Borrar del sistema) */}
     {user.role === 'admin' && (
@@ -501,7 +536,41 @@ const toggleLike = async (songId) => {
                     </div>
                 </div>
             </div>
+{/* MODAL SELECTOR DE PLAYLISTS */}
+            {showPlaylistModal && (
+                <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" 
+                     style={{backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 2000}}>
+                    
+                    <div className="card bg-dark text-white border-secondary shadow-lg" style={{width: '300px'}}>
+                        <div className="card-header border-secondary d-flex justify-content-between align-items-center">
+                            <h5 className="m-0 fs-6">Agregar a Playlist</h5>
+                            <button className="btn-close btn-close-white" onClick={() => setShowPlaylistModal(false)}></button>
+                        </div>
+                        <div className="card-body p-0">
+                            <div className="list-group list-group-flush">
+                                {/* Opción: Crear Nueva */}
+                                <button className="list-group-item list-group-item-action bg-dark text-success fw-bold border-secondary"
+                                        onClick={() => confirmAddToPlaylist('NEW')}>
+                                    <i className="bi bi-plus-lg me-2"></i> Nueva Playlist...
+                                </button>
+                                
+                                {/* Lista de Playlists Existentes */}
+                                {userPlaylists.map(p => (
+                                    <button key={p.id} 
+                                            className="list-group-item list-group-item-action bg-dark text-white border-secondary"
+                                            onClick={() => confirmAddToPlaylist(p.id)}>
+                                        <i className="bi bi-music-note-list me-2 text-white-50"></i> {p.name}
+                                    </button>
+                                ))}
 
+                                {userPlaylists.length === 0 && (
+                                    <div className="p-3 text-center text-white-50 small">No tienes playlists aún.</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* REPRODUCTOR */}
             {currentSong && (
                 <div className="bg-dark border-top border-secondary p-2 d-flex align-items-center justify-content-between shadow-lg" style={{ height: '85px', zIndex: 100 }}>
